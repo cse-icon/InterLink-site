@@ -263,18 +263,70 @@ az functionapp config appsettings set \
 
 The `SITE_URL` setting controls the CORS origin — only requests from your site domain are accepted.
 
-#### 4e. Get the Function App Publish Profile
+#### 4e. Set Up Azure Service Principal for GitHub Actions
 
-You need this for the GitHub Actions deployment:
+Flex Consumption apps don't support publish profile auth. Instead, create a **service principal with federated credentials** so GitHub Actions can deploy securely without storing secrets.
+
+**Create an App Registration and service principal:**
 
 ```bash
-az functionapp deployment list-publishing-profiles \
-  --name interlink-votes \
-  --resource-group rg-interlink-site \
-  --xml
+# Create the app registration
+az ad app create --display-name "InterLink GitHub Deploy"
+# Note the "appId" from the output — you'll need it for every step below
+
+# Create the service principal
+az ad sp create --id <appId>
 ```
 
-Copy the **entire XML output**. You'll paste it into a GitHub secret in step 6.
+**Grant it the minimum required role on the Function App only:**
+
+```bash
+az role assignment create \
+  --assignee <appId> \
+  --role "Website Contributor" \
+  --scope /subscriptions/<subscription-id>/resourceGroups/InterLink/providers/Microsoft.Web/sites/cse-interlink-votes
+```
+
+> **Why Website Contributor?** It grants permission to manage the Function App (deploy code, read settings) without access to other resources in the resource group. This follows least-privilege — the service principal can't touch the storage account, other apps, or resource group settings.
+
+**Add a federated credential for GitHub Actions:**
+
+This lets GitHub Actions authenticate using OIDC — no client secrets to rotate.
+
+**Via the Azure Portal (recommended):**
+
+1. Go to **Microsoft Entra ID → App registrations** → select **InterLink GitHub Deploy**
+2. In the sidebar, click **Certificates & secrets**
+3. Click the **Federated credentials** tab → **Add credential**
+4. For **Federated credential scenario**, select **GitHub Actions deploying Azure resources**
+5. Fill in:
+   - **Organization:** `cse-icon`
+   - **Repository:** `InterLink-site`
+   - **Entity type:** Branch
+   - **GitHub branch name:** `main`
+   - **Name:** `github-deploy`
+6. Click **Add**
+
+**Or via CLI:**
+
+```bash
+az ad app federated-credential create --id <appId> --parameters '{
+  "name": "github-deploy",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:cse-icon/InterLink-site:ref:refs/heads/main",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
+```
+
+> **Note:** The credential is scoped to the `main` branch. If you need to deploy from other branches, add additional federated credentials with the appropriate branch name.
+
+**Gather these three values for step 7:**
+
+| Value | Where to find it |
+|---|---|
+| **Client ID** | The `appId` from the app registration |
+| **Tenant ID** | Run `az account show --query tenantId -o tsv` |
+| **Subscription ID** | Run `az account show --query id -o tsv` |
 
 ---
 
@@ -343,7 +395,6 @@ Go to the repo **Settings → Secrets and variables → Actions**.
 
 | Secret Name | Value | Used By |
 |---|---|---|
-| `AZURE_FUNCTIONAPP_PUBLISH_PROFILE` | The full XML from step 4e | `deploy-functions.yml` |
 | `APP_PRIVATE_KEY` | Contents of the `.pem` file from step 6b | `sync-roadmap.yml` |
 
 #### Variables (Settings → Secrets and variables → Actions → Variables tab → New repository variable)
@@ -353,6 +404,9 @@ Go to the repo **Settings → Secrets and variables → Actions**.
 | `PROJECT_NUMBER` | The project number from step 5 (e.g., `5`) | `sync-roadmap.yml` |
 | `APP_ID` | The GitHub App ID from step 6d | `sync-roadmap.yml` |
 | `APP_INSTALLATION_ID` | The installation ID from step 6d | `sync-roadmap.yml` |
+| `AZURE_CLIENT_ID` | The App Registration client ID from step 4e | `deploy-functions.yml` |
+| `AZURE_TENANT_ID` | Your Entra tenant ID from step 4e | `deploy-functions.yml` |
+| `AZURE_SUBSCRIPTION_ID` | Your Azure subscription ID from step 4e | `deploy-functions.yml` |
 
 ---
 
@@ -592,16 +646,21 @@ PUBLIC_VOTE_API_URL=https://interlink-votes.azurewebsites.net
 
 Then rebuild and deploy.
 
-### Azure Function deploy fails
+### Azure Function deploy fails with 401 Unauthorized
 
-- Verify the `AZURE_FUNCTIONAPP_PUBLISH_PROFILE` secret contains the full XML from `az functionapp deployment list-publishing-profiles`
-- Publish profiles expire when you reset deployment credentials — regenerate if needed:
+This means the OIDC authentication between GitHub Actions and Azure isn't working:
+
+- Verify `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` variables are set correctly in the repo
+- Verify the service principal has **Website Contributor** role on the Function App:
   ```bash
-  az functionapp deployment list-publishing-profiles \
-    --name interlink-votes \
-    --resource-group rg-interlink-site \
-    --xml
+  az role assignment list --assignee <client-id> --scope /subscriptions/<sub-id>/resourceGroups/InterLink/providers/Microsoft.Web/sites/cse-interlink-votes
   ```
+- Verify the federated credential subject matches your repo and branch:
+  ```bash
+  az ad app federated-credential list --id <client-id>
+  ```
+  The `subject` must be `repo:cse-icon/InterLink-site:ref:refs/heads/main`
+- If deploying from a workflow_dispatch on a non-main branch, you need an additional federated credential for that branch
 
 ### Dark mode flickers on page load
 
