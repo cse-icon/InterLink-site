@@ -1,8 +1,9 @@
 import { defineConfig } from 'astro/config';
-import tailwind from '@astrojs/tailwind';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   site: 'https://interlink.products.cse-icon.com',
-  integrations: [tailwind()],
-  output: 'static',
+  vite: {
+    plugins: [tailwindcss()],
+  },
 });

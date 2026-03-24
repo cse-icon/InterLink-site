@@ -5,7 +5,8 @@
   "scripts": {
     "build": "tsc",
     "start": "func start",
-    "watch": "tsc -w"
+    "watch": "tsc -w",
+    "dev": "tsc && concurrently --kill-others \"azurite --silent\" \"tsc -w\" \"func start\""
   },
   "dependencies": {
     "@azure/data-tables": "^13.2.2",
@@ -13,6 +14,8 @@
   },
   "devDependencies": {
     "typescript": "^5.6.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "azurite": "^3.33.0",
+    "concurrently": "^9.1.0"
   }
 }

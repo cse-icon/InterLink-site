@@ -22,3 +22,12 @@ Thumbs.db
 # azure functions
 api/node_modules/
 api/dist/
+
+# azurite local storage emulation
+AzuriteConfig
+__blobstorage__/
+__queuestorage__/
+__tablestorage__/
+__azurite_db_blob*.json
+__azurite_db_queue*.json
+__azurite_db_table*.json

@@ -6,12 +6,12 @@
 /**
  * Extract a named field value from a GitHub Projects v2 item's field values.
  *
- * Supports single select fields (returns the selected value name),
- * text fields (returns the text), and checkbox fields (returns boolean).
+ * Supports single select fields (returns the selected value name)
+ * and text fields (returns the text).
  *
  * @param {object} item - A project item node from the GraphQL API
  * @param {string} fieldName - The name of the field to extract
- * @returns {string|boolean|null} The field value, or null if not found
+ * @returns {string|null} The field value, or null if not found
  */
 export function getField(item, fieldName) {
   for (const fv of item.fieldValues.nodes) {
@@ -20,7 +20,6 @@ export function getField(item, fieldName) {
     if (field.name === fieldName) {
       if ('name' in fv) return fv.name;
       if ('text' in fv) return fv.text;
-      if ('checked' in fv) return fv.checked;
     }
   }
   return null;

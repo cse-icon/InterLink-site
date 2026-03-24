@@ -17,9 +17,6 @@ function makeTextField(fieldName, value) {
   return { text: value, field: { name: fieldName } };
 }
 
-function makeCheckboxField(fieldName, value) {
-  return { checked: value, field: { name: fieldName } };
-}
 
 function makeItem({ id, title, fields = [] }) {
   return {
@@ -48,15 +45,6 @@ describe('getField', () => {
       fields: [makeTextField('Public Summary', 'A great feature')],
     });
     expect(getField(item, 'Public Summary')).toBe('A great feature');
-  });
-
-  it('extracts a checkbox field value', () => {
-    const item = makeItem({
-      id: '1',
-      title: 'Test',
-      fields: [makeCheckboxField('Legacy', true)],
-    });
-    expect(getField(item, 'Legacy')).toBe(true);
   });
 
   it('returns null for a missing field', () => {

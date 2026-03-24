@@ -443,20 +443,31 @@ After a few minutes, visit https://interlink.products.cse-icon.com and verify:
 
 ## Local Development
 
-```bash
-# Install dependencies
-npm install
+### Local Install
 
-# Start the dev server (hot reload)
+```bash
+npm install
+cd api
+npm install
+```
+
+### Site + Vote API
+
+```bash
+# Terminal 1 — Astro dev server
 npm run dev
 # → Site available at http://localhost:4321
 
-# In a separate terminal, run the Azure Function locally (optional, for vote testing)
+# Terminal 2 — Azure Function + Azurite + TypeScript watch (all in one)
 cd api
-npm install
-npm start
+npm run dev
 # → API available at http://localhost:7071
 ```
+
+`npm run dev` in the `api/` directory starts three processes together:
+- **Azurite** — local Azure Table Storage emulator
+- **TypeScript watch** — recompiles on save
+- **Azure Functions runtime** — serves the API
 
 When running both locally, the vote button will show "Voting API not configured yet" unless you create a `.env` file in the project root:
 
@@ -465,11 +476,11 @@ When running both locally, the vote button will show "Voting API not configured 
 PUBLIC_VOTE_API_URL=http://localhost:7071
 ```
 
-For the local Function to work, you also need [Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite) running for Table Storage emulation:
+### Running tests
 
 ```bash
-npm install -g azurite
-azurite --silent
+npm test           # Run all tests once
+npm run test:watch # Run tests in watch mode (re-runs on file changes)
 ```
 
 ---

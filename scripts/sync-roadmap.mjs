@@ -58,10 +58,6 @@ async function fetchProjectItems() {
                       text
                       field { ... on ProjectV2FieldCommon { name } }
                     }
-                    ... on ProjectV2ItemFieldCheckboxValue {
-                      checked
-                      field { ... on ProjectV2FieldCommon { name } }
-                    }
                   }
                 }
               }
