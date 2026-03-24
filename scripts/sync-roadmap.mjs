@@ -84,6 +84,7 @@ async function fetchProjectItems() {
     }
 
     const json = await res.json();
+    console.log('API response:', JSON.stringify(json, null, 2));
 
     if (json.errors) {
       console.error('GraphQL errors:', JSON.stringify(json.errors, null, 2));
