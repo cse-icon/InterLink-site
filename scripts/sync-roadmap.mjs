@@ -110,6 +110,16 @@ async function main() {
   const rawItems = await fetchProjectItems();
   console.log(`Found ${rawItems.length} total items`);
 
+  // Debug: log all field names and values for each item
+  for (const item of rawItems) {
+    const title = item.content?.title || 'Untitled';
+    const fields = item.fieldValues.nodes
+      .filter((fv) => fv.field)
+      .map((fv) => `${fv.field.name}=${fv.name || fv.text || '(empty)'}`)
+      .join(', ');
+    console.log(`  Item "${title}": ${fields || '(no fields)'}`);
+  }
+
   const publicItems = filterPublicItems(rawItems);
   console.log(`${publicItems.length} items are marked Public`);
 
