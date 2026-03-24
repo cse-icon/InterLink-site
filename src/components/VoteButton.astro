@@ -1,0 +1,141 @@
+---
+// This component provides the vote modal and client-side voting logic.
+// It is included once on the roadmap page and handles all vote buttons.
+---
+
+<div id="vote-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+  <div class="mx-4 w-full max-w-md rounded-2xl bg-[var(--color-bg)] p-6 shadow-2xl border border-[var(--color-border)]">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Vote for this feature</h3>
+      <button id="vote-modal-close" class="rounded-lg p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <p class="mt-2 text-sm text-[var(--color-text-muted)]">
+      Enter your email to cast your vote. Your feedback helps us prioritize what to build next.
+    </p>
+    <form id="vote-form" class="mt-4">
+      <input type="hidden" id="vote-item-id" name="itemId" />
+      <label for="vote-email" class="block text-sm font-medium">Email address</label>
+      <input
+        type="email"
+        id="vote-email"
+        name="email"
+        required
+        placeholder="you@company.com"
+        class="mt-1 block w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm placeholder:text-[var(--color-text-muted)] focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25"
+      />
+      <div id="vote-message" class="mt-2 hidden text-sm"></div>
+      <button
+        type="submit"
+        id="vote-submit"
+        class="mt-4 w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-50"
+      >
+        Submit Vote
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+  const API_URL = import.meta.env.PUBLIC_VOTE_API_URL || '';
+  const modal = document.getElementById('vote-modal')!;
+  const form = document.getElementById('vote-form') as HTMLFormElement;
+  const itemIdInput = document.getElementById('vote-item-id') as HTMLInputElement;
+  const emailInput = document.getElementById('vote-email') as HTMLInputElement;
+  const messageDiv = document.getElementById('vote-message')!;
+  const submitBtn = document.getElementById('vote-submit') as HTMLButtonElement;
+  const closeBtn = document.getElementById('vote-modal-close')!;
+
+  // Open modal on vote button click
+  document.querySelectorAll<HTMLButtonElement>('.vote-button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const itemId = btn.dataset.itemId;
+      if (!itemId) return;
+      itemIdInput.value = itemId;
+      emailInput.value = '';
+      messageDiv.classList.add('hidden');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Vote';
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      emailInput.focus();
+    });
+  });
+
+  // Close modal
+  function closeModal() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // Handle vote submission
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const itemId = itemIdInput.value;
+    const email = emailInput.value.trim();
+
+    if (!email) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+    messageDiv.classList.add('hidden');
+
+    if (!API_URL) {
+      messageDiv.textContent = 'Voting API not configured yet. Check back soon!';
+      messageDiv.className = 'mt-2 text-sm text-yellow-600 dark:text-yellow-400';
+      messageDiv.classList.remove('hidden');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Vote';
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/api/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId, email }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        messageDiv.textContent = 'Vote recorded — thanks for your feedback!';
+        messageDiv.className = 'mt-2 text-sm text-green-600 dark:text-green-400';
+        submitBtn.textContent = 'Vote Submitted';
+
+        // Update the vote count on the card
+        const btn = document.querySelector<HTMLButtonElement>(`.vote-button[data-item-id="${itemId}"]`);
+        if (btn) {
+          const countEl = btn.querySelector('.vote-count');
+          if (countEl) {
+            const current = parseInt(countEl.textContent || '0', 10);
+            countEl.textContent = String(current + 1);
+          }
+        }
+
+        // Close modal after a brief pause
+        setTimeout(closeModal, 1500);
+      } else {
+        messageDiv.textContent = data.error || 'Something went wrong. Please try again.';
+        messageDiv.className = 'mt-2 text-sm text-red-600 dark:text-red-400';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Vote';
+      }
+    } catch {
+      messageDiv.textContent = 'Network error. Please try again.';
+      messageDiv.className = 'mt-2 text-sm text-red-600 dark:text-red-400';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit Vote';
+    }
+
+    messageDiv.classList.remove('hidden');
+  });
+</script>

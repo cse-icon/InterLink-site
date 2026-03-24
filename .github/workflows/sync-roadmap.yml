@@ -1,0 +1,41 @@
+name: Sync Roadmap
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: cse-icon
+
+      - name: Fetch roadmap from GitHub Projects
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+          ORG: cse-icon
+        run: node scripts/sync-roadmap.mjs
+
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/data/roadmap.json src/data/roadmap-meta.json
+          git diff --staged --quiet || (git commit -m "chore: sync roadmap data" && git push)

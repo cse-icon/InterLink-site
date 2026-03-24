@@ -1,0 +1,49 @@
+---
+interface Props {
+  id: string;
+  title: string;
+  summary: string;
+  category: string;
+  status: string;
+  releasedIn: string | null;
+  votes: number;
+}
+
+const { id, title, summary, category, status, releasedIn, votes } = Astro.props;
+
+const categoryClass: Record<string, string> = {
+  PI: 'badge-pi',
+  'OPC UA': 'badge-opcua',
+  Platform: 'badge-platform',
+  Configuration: 'badge-configuration',
+  Security: 'badge-security',
+  Federation: 'badge-federation',
+};
+---
+
+<div class="card flex flex-col gap-3" data-category={category} data-status={status}>
+  <div class="flex items-start justify-between gap-2">
+    <h3 class="text-sm font-semibold leading-tight">{title}</h3>
+    <span class={`badge shrink-0 ${categoryClass[category] || 'badge-platform'}`}>
+      {category}
+    </span>
+  </div>
+  <p class="text-sm text-[var(--color-text-muted)] leading-relaxed">{summary}</p>
+  <div class="mt-auto flex items-center justify-between pt-2">
+    <div class="flex items-center gap-2">
+      {releasedIn && (
+        <span class="badge badge-status-released">{releasedIn}</span>
+      )}
+    </div>
+    <button
+      class="vote-button inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium transition-all hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700 dark:hover:border-brand-700 dark:hover:bg-brand-950 dark:hover:text-brand-400"
+      data-item-id={id}
+      data-vote-count={votes}
+    >
+      <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+      </svg>
+      <span class="vote-count">{votes}</span>
+    </button>
+  </div>
+</div>

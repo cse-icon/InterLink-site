@@ -1,0 +1,153 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Hero from '../components/Hero.astro';
+import FeatureSection from '../components/FeatureSection.astro';
+
+const icons = {
+  database: '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14c0 1.657 4.03 3 9 3s9-1.343 9-3V5" /><path d="M3 12c0 1.657 4.03 3 9 3s9-1.343 9-3" /></svg>',
+  hierarchy: '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" /></svg>',
+  server: '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 17.25v-.228a4.5 4.5 0 00-.12-1.03l-2.268-9.64a3.375 3.375 0 00-3.285-2.602H7.923a3.375 3.375 0 00-3.285 2.602l-2.268 9.64a4.5 4.5 0 00-.12 1.03v.228m19.5 0a3 3 0 01-3 3H5.25a3 3 0 01-3-3m19.5 0a3 3 0 00-3-3H5.25a3 3 0 00-3 3m16.5 0h.008v.008h-.008v-.008zm-3 0h.008v.008h-.008v-.008z" /></svg>',
+  cog: '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
+  shield: '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>',
+  globe: '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" /></svg>',
+  deploy: '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" /></svg>',
+};
+
+const sections = [
+  {
+    title: 'PI Data Archive',
+    description: 'Connect directly to PI Data Archive servers and expose points via OPC UA.',
+    icon: icons.database,
+    features: [
+      { title: 'Browse & Filter Points', description: 'Search PI points by name pattern with configurable result limits' },
+      { title: 'Real-Time Subscriptions', description: 'Subscribe to value changes — pushed to OPC UA clients automatically' },
+      { title: 'Historical Data Access', description: 'Read time-series data with configurable date ranges via OPC UA HistoryRead' },
+      { title: 'Write-Back', description: 'Write values back to PI points from any OPC UA client' },
+      { title: 'Flexible Authentication', description: 'Windows integrated auth or explicit domain credentials (DOMAIN\\user)' },
+      { title: 'Server Discovery', description: 'Automatically discover available PI Data Archive servers on the network' },
+      { title: 'Connection Resilience', description: 'Automatic retry with configurable intervals and attempt limits' },
+    ],
+  },
+  {
+    title: 'PI Asset Framework',
+    description: 'Navigate AF hierarchies and expose attributes as OPC UA nodes.',
+    icon: icons.hierarchy,
+    features: [
+      { title: 'Full Hierarchy Browsing', description: 'Navigate AF databases → elements → attributes as OPC UA folders and variables' },
+      { title: 'Multi-Database Support', description: 'Connect to multiple AF databases simultaneously' },
+      { title: 'Attribute Subscriptions', description: 'Real-time value change notifications on AF attributes' },
+      { title: 'Historical Reads', description: 'Time-series data retrieval from AF attribute history' },
+      { title: 'Write-Back', description: 'Write values to AF attributes from OPC UA clients' },
+      { title: 'Element Metadata', description: 'Expose element descriptions and hierarchy context' },
+    ],
+  },
+  {
+    title: 'OPC UA Server',
+    description: 'A standards-compliant OPC UA server with enterprise security.',
+    icon: icons.server,
+    features: [
+      { title: 'Standards Compliant', description: 'Built on the OPC Foundation .NET Standard SDK' },
+      { title: 'Security', description: 'Basic256Sha256 with SignAndEncrypt — no insecure endpoints' },
+      { title: 'Dynamic Namespaces', description: 'Each PI adapter gets its own OPC UA namespace, auto-populated' },
+      { title: 'Lazy Hierarchy Loading', description: 'Deep hierarchies populate on-demand for fast startup' },
+      { title: 'Client Session Tracking', description: 'Monitor connected clients, subscriptions, and monitored items' },
+      { title: 'Certificate Management', description: 'Auto-generate server certs, trust/reject client certs via web UI' },
+    ],
+  },
+  {
+    title: 'Configuration & Management',
+    description: 'Web-based configuration with zero downtime.',
+    icon: icons.cog,
+    features: [
+      { title: 'Web-Based Dashboard', description: 'Configure, monitor, and explore data from a browser' },
+      { title: 'Hot Reload', description: 'Change adapter settings without restarting the service' },
+      { title: 'Data Explorer', description: 'Browse tags, view live values, chart historical data' },
+      { title: 'Real-Time Logs', description: 'Live log streaming via SignalR with level filtering' },
+      { title: 'Config Backups', description: 'Automatic timestamped backups on every config change' },
+      { title: 'Adapter Lifecycle', description: 'Add, remove, enable, or disable adapters at runtime' },
+    ],
+  },
+  {
+    title: 'Security',
+    description: 'Enterprise-grade security at every layer.',
+    icon: icons.shield,
+    features: [
+      { title: 'Windows AD Authentication', description: 'Log into the management UI with domain credentials' },
+      { title: 'Certificate Trust Store', description: 'Import, approve, reject, and manage OPC UA client certificates' },
+      { title: 'DPAPI Credential Encryption', description: 'Stored passwords encrypted with Windows DPAPI' },
+      { title: 'JWT API Security', description: 'Internal APIs protected with JWT tokens' },
+      { title: 'Group-Based Access', description: 'Restrict management UI access to "CSE InterLink Admins" group' },
+      { title: 'RSA-Signed Licensing', description: 'Machine-bound licenses with RSA signature validation' },
+    ],
+  },
+  {
+    title: 'Enterprise & Federation',
+    description: 'Multi-site deployment and centralized management.',
+    icon: icons.globe,
+    features: [
+      { title: 'Multi-Site Topology', description: 'Connect multiple InterLink instances to a central hub' },
+      { title: 'Heartbeat Monitoring', description: 'Automatic availability detection across sites' },
+      { title: 'Pairing Workflow', description: 'Secure approval process for new site connections' },
+      { title: 'API Key Management', description: 'Issue and revoke API keys for federated instances' },
+      { title: 'Centralized Visibility', description: 'Monitor remote instance status from a single dashboard' },
+    ],
+  },
+  {
+    title: 'Deployment',
+    description: 'Runs as native Windows services with simple administration.',
+    icon: icons.deploy,
+    features: [
+      { title: 'Windows Services', description: 'Runs as two Windows services (DataProcessor + ConfigMonitor)' },
+      { title: 'Single Config File', description: 'One config.json governs everything — version-controllable' },
+      { title: 'Console Debug Mode', description: 'Run interactively for troubleshooting' },
+      { title: 'Auto-Migration', description: 'Config file automatically upgraded when you update InterLink' },
+      { title: 'Structured Logging', description: 'SQLite + file logging with configurable retention' },
+    ],
+  },
+];
+---
+
+<BaseLayout title="InterLink — Bridge PI to OPC UA">
+  <Hero
+    title="InterLink"
+    tagline="Bridge your PI System to any OPC UA client — securely, in minutes"
+    subtitle="CSE ICON InterLink connects AVEVA PI Data Archive and Asset Framework to the OPC UA ecosystem with enterprise security, real-time subscriptions, and zero-code configuration."
+  />
+
+  <div class="divide-y divide-[var(--color-border)]">
+    {sections.map((section, i) => (
+      <FeatureSection
+        title={section.title}
+        description={section.description}
+        icon={section.icon}
+        features={section.features}
+        reversed={i % 2 !== 0}
+      />
+    ))}
+  </div>
+
+  <section class="bg-gradient-to-r from-brand-600 to-blue-600 py-16 sm:py-24">
+    <div class="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+      <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+        Ready to bridge your PI System?
+      </h2>
+      <p class="mt-4 text-lg text-brand-100">
+        See what's coming next on our roadmap, or get in touch to learn more.
+      </p>
+      <div class="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+        <a
+          href="/roadmap"
+          class="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-brand-700 shadow-lg transition-all hover:bg-brand-50"
+        >
+          View Roadmap
+        </a>
+        <a
+          href="mailto:sales@cse-icon.com"
+          class="inline-flex items-center gap-2 rounded-lg border border-white/25 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10"
+        >
+          Contact Sales
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
