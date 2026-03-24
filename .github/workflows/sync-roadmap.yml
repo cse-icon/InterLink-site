@@ -26,6 +26,17 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           owner: cse-icon
 
+      - name: Debug token scopes
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          echo "=== Token info ==="
+          curl -s -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/installation/repositories | jq '.total_count'
+          echo "=== Direct project query ==="
+          curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/json" \
+            -d '{"query":"{ organization(login: \"cse-icon\") { projectV2(number: 4) { title items(first: 5) { totalCount } } } }"}' \
+            https://api.github.com/graphql | jq .
+
       - name: Fetch roadmap from GitHub Projects
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
