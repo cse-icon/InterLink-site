@@ -22,14 +22,14 @@ async function ensureTables() {
 async function postVote(req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   await ensureTables();
 
-  let body: { itemId?: string; email?: string };
+  let body: { itemId?: string; email?: string; useCase?: string };
   try {
-    body = (await req.json()) as { itemId?: string; email?: string };
+    body = (await req.json()) as { itemId?: string; email?: string; useCase?: string };
   } catch {
     return { status: 400, headers: CORS_HEADERS, jsonBody: { error: 'Invalid JSON body' } };
   }
 
-  const { itemId, email } = body;
+  const { itemId, email, useCase } = body;
 
   if (!itemId || !email || !isValidEmail(email)) {
     return { status: 400, headers: CORS_HEADERS, jsonBody: { error: 'Valid itemId and email are required' } };
@@ -55,6 +55,7 @@ async function postVote(req: HttpRequest, context: InvocationContext): Promise<H
     partitionKey: itemId,
     rowKey: normalized,
     originalEmail: email.trim().toLowerCase(),
+    useCase: useCase || '',
     timestamp: new Date().toISOString(),
   });
 
