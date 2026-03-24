@@ -2,6 +2,7 @@
   "name": "interlink-vote-api",
   "version": "1.0.0",
   "private": true,
+  "main": "dist/vote/index.js",
   "scripts": {
     "build": "tsc",
     "start": "func start",
