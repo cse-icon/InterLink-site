@@ -1,1 +1,29 @@
-[]
+[
+  {
+    "id": "PVTI_lADOAVtvxM4BPYJQzgloEU8",
+    "title": "Redundancy",
+    "summary": "To support both transparent and non-transparent redundancy.",
+    "category": "OPC UA",
+    "status": "Backlog",
+    "releasedIn": null,
+    "votes": 0
+  },
+  {
+    "id": "PVTI_lADOAVtvxM4BPYJQzglzR7g",
+    "title": "Enable OpenID as auth method for website",
+    "summary": "Allow users to bring their own Open ID provider (e.g., Entra, Okta) for logging into Configuration Monitori.",
+    "category": "Security",
+    "status": "Backlog",
+    "releasedIn": null,
+    "votes": 0
+  },
+  {
+    "id": "PVTI_lADOAVtvxM4BPYJQzgmmNuU",
+    "title": "Support AF Event Frames",
+    "summary": "Expose PI AF Event Frames as \"Alarms & Conditions\"",
+    "category": "PI",
+    "status": "Backlog",
+    "releasedIn": null,
+    "votes": 0
+  }
+]
