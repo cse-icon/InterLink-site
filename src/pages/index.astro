@@ -16,23 +16,23 @@ const icons = {
 
 const sections = [
   {
-    title: 'PI Data Archive',
-    description: 'Connect directly to PI Data Archive servers and expose points via OPC UA.',
+    title: 'Data Archive',
+    description: 'Connect directly to Data Archive servers and expose points via OPC UA.',
     icon: icons.database,
     features: [
       { title: 'Easy Direct Add', description: 'Node ID is the PI point name.' },
-      { title: 'Multi-Archive Support', description: 'Connect to multiple PI Data Archives simultaneously. Support Collectives.' },
+      { title: 'Multi-Archive Support', description: 'Connect to multiple Data Archives simultaneously. Support Collectives.' },
       { title: 'Real-Time Subscriptions', description: 'Subscribe to value changes — pushed to OPC UA clients automatically.' },
       { title: 'Historical Data Access', description: 'Read time-series data with configurable date ranges.' },
       { title: 'Write-Back', description: 'Write values back to PI points from any OPC UA client.' },
-      { title: 'Flexible Authentication', description: 'Windows integrated auth or explicit  credentials (DOMAIN\\user).' },
-      { title: 'Server Discovery', description: 'Automatically discover available PI Data Archive servers on the network.' },
+      { title: 'Flexible Authentication', description: 'Windows integrated auth or explicit credentials (DOMAIN\\user).' },
+      { title: 'Server Discovery', description: 'Automatically discover available Data Archive servers on the network.' },
       { title: 'Connection Resilience', description: 'Automatic retry with configurable intervals and attempt limits.' },
       { title: 'Built on AF SDK', description: 'All the functionality you are used to.' },
     ],
   },
   {
-    title: 'PI Asset Framework',
+    title: 'Asset Framework (AF)',
     description: 'Navigate AF hierarchies and expose attributes as OPC UA nodes.',
     icon: icons.hierarchy,
     features: [
@@ -51,7 +51,7 @@ const sections = [
     features: [
       { title: 'Standards Compliant', description: 'Built on the OPC Foundation .NET Standard SDK.' },
       { title: 'Security', description: 'Basic256Sha256 with SignAndEncrypt.' },
-      { title: 'Dynamic Namespaces', description: 'Each PI Archive or AF Server gets its own OPC UA namespace, auto-populated.' },
+      { title: 'Dynamic Namespaces', description: 'Each Data Archive and AF Server gets its own OPC UA namespace, auto-populated.' },
       { title: 'Lazy Hierarchy Loading', description: 'Deep hierarchies populate on-demand for fast startup.' },
       { title: 'Certificate Management', description: 'Auto-generate server certs, trust/reject client certs via web UI.' },
     ],
@@ -98,16 +98,9 @@ const sections = [
 <BaseLayout title="InterLink — Bridge PI to OPC UA">
   <Hero
     title="InterLink"
-    tagline="Bridge your PI System to any OPC UA client — securely, in minutes"
-    subtitle="CSE ICON InterLink connects AVEVA PI Data Archive and Asset Framework to the OPC UA ecosystem with enterprise security, real-time subscriptions, and zero-code configuration."
-  />
-
-  <!-- Possibilities diagram — sets the stage -->
-  <ImageBreak
-    src="/images/possibilities-diagram.webp"
-    alt="Possible uses for the OPC UA Server for AVEVA PI System"
-    caption="InterLink connects your PI System to any OPC UA client across your enterprise"
-    variant="contained"
+    tagline="Bridge your AVEVA PI System™ to any OPC UA client — securely, in minutes"
+    subtitle="CSE ICON InterLink connects Data Archive and Asset Framework (AF) to the OPC UA ecosystem with enterprise security, real-time subscriptions, and zero-code configuration."
+    backgroundImage="/images/possibilities-diagram.webp"
   />
 
   <!-- PI Data Archive -->
@@ -142,13 +135,6 @@ const sections = [
     description={sections[2].description}
     icon={sections[2].icon}
     features={sections[2].features}
-  />
-
-  <!-- Industrial worker photo — human element break -->
-  <ImageBreak
-    src="/images/industrial-worker.webp"
-    alt="Industrial worker using a tablet to view real-time data"
-    variant="split"
   />
 
   <!-- Configuration & Management -->
