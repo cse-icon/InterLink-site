@@ -113,4 +113,26 @@ const categories = [...new Set(items.map((i) => i.category))].sort();
       });
     });
   });
+
+  // Fetch live vote counts from API
+  const API_URL = import.meta.env.PUBLIC_VOTE_API_URL || '';
+  if (API_URL) {
+    const voteButtons = document.querySelectorAll<HTMLButtonElement>('.vote-button');
+    voteButtons.forEach(async (btn) => {
+      const itemId = btn.dataset.itemId;
+      if (!itemId) return;
+      try {
+        const res = await fetch(`${API_URL}/api/vote/${itemId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const countEl = btn.querySelector('.vote-count');
+          if (countEl && data.count !== undefined) {
+            countEl.textContent = String(data.count);
+          }
+        }
+      } catch {
+        // Silent fail — static count stays as fallback
+      }
+    });
+  }
 </script>
