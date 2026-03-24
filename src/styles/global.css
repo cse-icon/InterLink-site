@@ -74,11 +74,11 @@
   }
 
   .section-description {
-    @apply mt-2 text-lg text-[var(--color-text-muted)];
+    @apply mt-1 text-base text-[var(--color-text-muted)];
   }
 
   .card {
-    @apply rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6;
+    @apply rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4;
   }
 
   .badge {

@@ -2,6 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Hero from '../components/Hero.astro';
 import FeatureSection from '../components/FeatureSection.astro';
+import ImageBreak from '../components/ImageBreak.astro';
 
 const icons = {
   database: '<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14c0 1.657 4.03 3 9 3s9-1.343 9-3V5" /><path d="M3 12c0 1.657 4.03 3 9 3s9-1.343 9-3" /></svg>',
@@ -101,19 +102,98 @@ const sections = [
     subtitle="CSE ICON InterLink connects AVEVA PI Data Archive and Asset Framework to the OPC UA ecosystem with enterprise security, real-time subscriptions, and zero-code configuration."
   />
 
-  <div class="divide-y divide-[var(--color-border)]">
-    {sections.map((section, i) => (
-      <FeatureSection
-        title={section.title}
-        description={section.description}
-        icon={section.icon}
-        features={section.features}
-        reversed={i % 2 !== 0}
-      />
-    ))}
-  </div>
+  <!-- Possibilities diagram — sets the stage -->
+  <ImageBreak
+    src="/images/possibilities-diagram.webp"
+    alt="Possible uses for the OPC UA Server for AVEVA PI System"
+    caption="InterLink connects your PI System to any OPC UA client across your enterprise"
+    variant="contained"
+  />
 
-  <section class="bg-gradient-to-r from-brand-600 to-brand-800 py-16 sm:py-24">
+  <!-- PI Data Archive -->
+  <FeatureSection
+    title={sections[0].title}
+    description={sections[0].description}
+    icon={sections[0].icon}
+    features={sections[0].features}
+  />
+
+  <!-- Zero-loss translation — proves data fidelity -->
+  <ImageBreak
+    src="/images/zero-loss-translation.webp"
+    alt="Zero loss in translation between PI and OPC UA"
+    caption="PI data is exposed with full fidelity — timestamps, quality, and values translate exactly"
+    variant="contained"
+    background="dark"
+  />
+
+  <!-- PI Asset Framework -->
+  <FeatureSection
+    title={sections[1].title}
+    description={sections[1].description}
+    icon={sections[1].icon}
+    features={sections[1].features}
+    reversed
+  />
+
+  <!-- OPC UA Server -->
+  <FeatureSection
+    title={sections[2].title}
+    description={sections[2].description}
+    icon={sections[2].icon}
+    features={sections[2].features}
+  />
+
+  <!-- Industrial worker photo — human element break -->
+  <ImageBreak
+    src="/images/industrial-worker.webp"
+    alt="Industrial worker using a tablet to view real-time data"
+    variant="split"
+  />
+
+  <!-- Configuration & Management -->
+  <FeatureSection
+    title={sections[3].title}
+    description={sections[3].description}
+    icon={sections[3].icon}
+    features={sections[3].features}
+    reversed
+  />
+
+  <!-- Security -->
+  <FeatureSection
+    title={sections[4].title}
+    description={sections[4].description}
+    icon={sections[4].icon}
+    features={sections[4].features}
+  />
+
+  <!-- Historical data diagram — technical credibility -->
+  <ImageBreak
+    src="/images/historical-data.webp"
+    alt="Historical data shown identically in PI and OPC UA"
+    caption="Historical data reads return identical results whether accessed through PI or OPC UA"
+    variant="contained"
+  />
+
+  <!-- Deployment -->
+  <FeatureSection
+    title={sections[5].title}
+    description={sections[5].description}
+    icon={sections[5].icon}
+    features={sections[5].features}
+    reversed
+  />
+
+  <!-- AVEVA endorsement badge -->
+  <section class="py-8 sm:py-10">
+    <div class="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+      <img src="/images/aveva-endorsed-badge.webp" alt="AVEVA Endorsed System Integrator" class="mx-auto h-28 sm:h-32" loading="lazy" />
+      <p class="mt-3 text-sm text-[var(--color-text-muted)]">CSE ICON is an AVEVA Endorsed System Integrator</p>
+    </div>
+  </section>
+
+  <section class="bg-gradient-to-r from-brand-600 to-brand-800 py-10 sm:py-14">
     <div class="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
       <h2 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
         Ready to bridge your PI System?
