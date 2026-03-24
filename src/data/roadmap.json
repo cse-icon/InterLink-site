@@ -37,7 +37,7 @@
   },
   {
     "id": "PVTI_lADOAVtvxM4BPYJQzgmmJl4",
-    "title": "Performance Benchmark: 300,000 tags at 1 minute poll",
+    "title": "Document Performance Benchmarks",
     "summary": "Looking for real-world users cases (tag count, data rate, etc.) to mock in the lab and test against.",
     "category": "Platform",
     "status": "Investigating",
