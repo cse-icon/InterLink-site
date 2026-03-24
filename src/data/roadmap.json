@@ -9,10 +9,55 @@
     "votes": 0
   },
   {
+    "id": "PVTI_lADOAVtvxM4BPYJQzglyshw",
+    "title": "Write stats to PerfMon",
+    "summary": "Write system metrics (e.g., connection count, throughput, etc.) to PerfMon for ingestion by PI and other IT monitoring applications.",
+    "category": "Platform",
+    "status": "Backlog",
+    "releasedIn": null,
+    "votes": 0
+  },
+  {
     "id": "PVTI_lADOAVtvxM4BPYJQzglzR7g",
     "title": "Enable OpenID as auth method for website",
     "summary": "Allow users to bring their own Open ID provider (e.g., Entra, Okta) for logging into Configuration Monitori.",
     "category": "Security",
+    "status": "Backlog",
+    "releasedIn": null,
+    "votes": 0
+  },
+  {
+    "id": "PVTI_lADOAVtvxM4BPYJQzgmmI-8",
+    "title": "Allow admins to tie OPC UA profiles back to PI and AF identities",
+    "summary": "Right now anyone authorized to connect tot he OPC UA server can see all the data that the service account running InterLink can see. Allow the option to tied user profiles to PI Identities for more nuanced security.",
+    "category": "Platform",
+    "status": "Backlog",
+    "releasedIn": null,
+    "votes": 0
+  },
+  {
+    "id": "PVTI_lADOAVtvxM4BPYJQzgmmJl4",
+    "title": "Performance Benchmark: 300,000 tags at 1 minute poll",
+    "summary": "Looking for real-world users cases (tag count, data rate, etc.) to mock in the lab and test against.",
+    "category": "Platform",
+    "status": "Investigating",
+    "releasedIn": null,
+    "votes": 0
+  },
+  {
+    "id": "PVTI_lADOAVtvxM4BPYJQzgmmLsk",
+    "title": "Add Canary as a source",
+    "summary": "Stream tags from Canary Views via OPC UA",
+    "category": "OPC UA",
+    "status": "Backlog",
+    "releasedIn": null,
+    "votes": 0
+  },
+  {
+    "id": "PVTI_lADOAVtvxM4BPYJQzgmmLwc",
+    "title": "Add Databricks as a source",
+    "summary": "",
+    "category": "OPC UA",
     "status": "Backlog",
     "releasedIn": null,
     "votes": 0
