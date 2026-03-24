@@ -4,17 +4,35 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-brand-50: #eff6ff;
-  --color-brand-100: #dbeafe;
-  --color-brand-200: #bfdbfe;
-  --color-brand-300: #93c5fd;
-  --color-brand-400: #60a5fa;
-  --color-brand-500: #3b82f6;
-  --color-brand-600: #2563eb;
-  --color-brand-700: #1d4ed8;
-  --color-brand-800: #1e40af;
-  --color-brand-900: #1e3a8a;
-  --color-brand-950: #172554;
+  /* CSE ICON Brand Colors */
+  --color-brand-50: #fdf2f4;
+  --color-brand-100: #fce4e8;
+  --color-brand-200: #f9cdd4;
+  --color-brand-300: #f4a3b0;
+  --color-brand-400: #ec7084;
+  --color-brand-500: #df4460;
+  --color-brand-600: #b3243a;
+  --color-brand-700: #9a1e32;
+  --color-brand-800: #811c2e;
+  --color-brand-900: #6f1b2c;
+  --color-brand-950: #3e0a14;
+
+  --color-accent-50: #eff9ff;
+  --color-accent-100: #daf1ff;
+  --color-accent-200: #bee7ff;
+  --color-accent-300: #91d9ff;
+  --color-accent-400: #5ec3fc;
+  --color-accent-500: #2ea3f2;
+  --color-accent-600: #1e88d9;
+  --color-accent-700: #166db0;
+  --color-accent-800: #185b91;
+  --color-accent-900: #194d77;
+  --color-accent-950: #123049;
+
+  --color-teal-500: #82c0c7;
+  --color-teal-700: #1f6581;
+
+  --font-sans: "Open Sans", Arial, sans-serif;
 }
 
 @layer base {
@@ -22,8 +40,8 @@
     --color-bg: #ffffff;
     --color-surface: #f8fafc;
     --color-border: #e2e8f0;
-    --color-text: #0f172a;
-    --color-text-muted: #64748b;
+    --color-text: #333333;
+    --color-text-muted: #666666;
   }
 
   .dark {
@@ -39,13 +57,20 @@
   }
 
   body {
-    @apply bg-[var(--color-bg)] text-[var(--color-text)] antialiased;
+    @apply bg-[var(--color-bg)] text-[var(--color-text)] antialiased font-sans;
+    font-weight: 500;
+    line-height: 1.7;
   }
 }
 
 @layer components {
   .section-heading {
     @apply text-3xl font-bold tracking-tight sm:text-4xl;
+    color: #333333;
+  }
+
+  .dark .section-heading {
+    color: #f1f5f9;
   }
 
   .section-description {
@@ -53,7 +78,7 @@
   }
 
   .card {
-    @apply rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 transition-shadow hover:shadow-lg;
+    @apply rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6;
   }
 
   .badge {

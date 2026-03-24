@@ -16,6 +16,9 @@ const { title, description = 'CSE ICON InterLink — Bridge your PI System to an
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>{title}</title>
     <script is:inline>
       if (
@@ -27,21 +30,28 @@ const { title, description = 'CSE ICON InterLink — Bridge your PI System to an
     </script>
   </head>
   <body class="min-h-screen flex flex-col">
-    <nav class="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-bg)]/80 backdrop-blur-lg">
-      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <a href="/" class="flex items-center gap-2 text-xl font-bold tracking-tight">
-          <svg class="h-8 w-8 text-brand-600" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="32" height="32" rx="8" fill="currentColor" />
-            <path d="M8 16h6l2-4 4 8 2-4h4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-          <span>InterLink</span>
+    <!-- Top bar (CSE ICON red) -->
+    <div class="bg-brand-600 text-white text-xs py-1.5">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <a href="https://cse-icon.com" class="font-semibold hover:text-white/80 transition-colors">CSE ICON, Inc.</a>
+        <a href="mailto:sales@cse-icon.com" class="hover:text-white/80 transition-colors">sales@cse-icon.com</a>
+      </div>
+    </div>
+
+    <!-- Main nav -->
+    <nav class="sticky top-0 z-50 bg-white shadow-[0_1px_0_rgba(0,0,0,0.1)] dark:bg-slate-900 dark:shadow-[0_1px_0_rgba(255,255,255,0.05)]">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <a href="/" class="flex items-center gap-3">
+          <img src="/cse-icon-logo.png" alt="CSE ICON" class="h-8 dark:brightness-0 dark:invert" />
+          <span class="text-[var(--color-text-muted)]">|</span>
+          <span class="text-lg font-bold tracking-tight text-[var(--color-text)]">InterLink</span>
         </a>
         <div class="flex items-center gap-6">
-          <a href="/" class="text-sm font-medium text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]">Features</a>
-          <a href="/roadmap" class="text-sm font-medium text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]">Roadmap</a>
+          <a href="/" class="text-sm font-semibold text-[var(--color-text-muted)] transition-colors hover:text-brand-600">Features</a>
+          <a href="/roadmap" class="text-sm font-semibold text-[var(--color-text-muted)] transition-colors hover:text-brand-600">Roadmap</a>
           <button
             id="theme-toggle"
-            class="rounded-lg p-2 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]"
+            class="rounded-lg p-2 text-[var(--color-text-muted)] transition-colors hover:bg-gray-100 hover:text-[var(--color-text)] dark:hover:bg-slate-800"
             aria-label="Toggle dark mode"
           >
             <svg class="h-5 w-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -59,19 +69,6 @@ const { title, description = 'CSE ICON InterLink — Bridge your PI System to an
       <slot />
     </main>
 
-    <footer class="border-t border-[var(--color-border)] bg-[var(--color-surface)]">
-      <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div class="flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <p class="text-sm text-[var(--color-text-muted)]">
-            &copy; {new Date().getFullYear()} CSE ICON. All rights reserved.
-          </p>
-          <div class="flex gap-6">
-            <a href="mailto:sales@cse-icon.com" class="text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]">Contact Sales</a>
-            <a href="https://cse-icon.com" class="text-sm text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text)]">CSE ICON</a>
-          </div>
-        </div>
-      </div>
-    </footer>
 
     <script>
       document.getElementById('theme-toggle')?.addEventListener('click', () => {

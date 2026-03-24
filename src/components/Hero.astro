@@ -10,15 +10,15 @@ const { title, tagline, subtitle } = Astro.props;
 
 <section class="relative overflow-hidden">
   <div class="absolute inset-0 -z-10">
-    <div class="absolute inset-0 bg-gradient-to-br from-brand-50 via-white to-blue-50 dark:from-brand-950/50 dark:via-slate-900 dark:to-slate-900"></div>
+    <div class="absolute inset-0 bg-gradient-to-br from-brand-50 via-white to-accent-50 dark:from-brand-950/50 dark:via-slate-900 dark:to-slate-900"></div>
     <div class="absolute right-0 top-0 -z-10 h-[500px] w-[500px] rounded-full bg-brand-400/10 blur-3xl dark:bg-brand-600/10"></div>
-    <div class="absolute bottom-0 left-0 -z-10 h-[400px] w-[400px] rounded-full bg-blue-400/10 blur-3xl dark:bg-blue-600/10"></div>
+    <div class="absolute bottom-0 left-0 -z-10 h-[400px] w-[400px] rounded-full bg-accent-400/10 blur-3xl dark:bg-accent-600/10"></div>
   </div>
 
   <div class="mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8 lg:py-40">
     <div class="mx-auto max-w-3xl text-center">
       <h1 class="text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl">
-        <span class="bg-gradient-to-r from-brand-600 to-blue-600 bg-clip-text text-transparent dark:from-brand-400 dark:to-blue-400">
+        <span class="bg-gradient-to-r from-brand-600 to-accent-500 bg-clip-text text-transparent dark:from-brand-400 dark:to-accent-400">
           {title}
         </span>
       </h1>
@@ -31,7 +31,7 @@ const { title, tagline, subtitle } = Astro.props;
       <div class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
         <a
           href="/roadmap"
-          class="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/25 transition-all hover:bg-brand-700 hover:shadow-xl hover:shadow-brand-600/30"
+          class="inline-flex items-center gap-2 rounded-md bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-600/25 transition-all hover:bg-brand-700 hover:shadow-xl hover:shadow-brand-600/30"
         >
           View Roadmap
           <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -40,7 +40,7 @@ const { title, tagline, subtitle } = Astro.props;
         </a>
         <a
           href="mailto:sales@cse-icon.com"
-          class="inline-flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-6 py-3 text-sm font-semibold transition-all hover:bg-[var(--color-surface)]"
+          class="inline-flex items-center gap-2 rounded-md border-2 border-brand-600 px-6 py-3 text-sm font-semibold text-brand-600 transition-all hover:bg-brand-600 hover:text-white dark:border-brand-400 dark:text-brand-400 dark:hover:bg-brand-400 dark:hover:text-slate-900"
         >
           Contact Sales
         </a>
