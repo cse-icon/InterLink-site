@@ -70,5 +70,23 @@
     "status": "Backlog",
     "releasedIn": null,
     "votes": 0
+  },
+  {
+    "id": "PVTI_lADOAVtvxM4BPYJQzgoPtNQ",
+    "title": "Enterprise Management",
+    "summary": "Allow admins to configure multiple InterLink instances from a single entry point.",
+    "category": "Platform",
+    "status": "In Development",
+    "releasedIn": null,
+    "votes": 0
+  },
+  {
+    "id": "PVTI_lADOAVtvxM4BPYJQzgoUnpA",
+    "title": "Multiple OPC UA Endpoints",
+    "summary": "Allow creation of multiple endpoints for fine grained access control.",
+    "category": "OPC UA",
+    "status": "Backlog",
+    "releasedIn": null,
+    "votes": 0
   }
 ]
