@@ -90,6 +90,15 @@
     "votes": 0
   },
   {
+    "id": "PVTI_lADOAVtvxM4BPYJQzgoU-_w",
+    "title": "PI Data Archive",
+    "summary": "Support PI Data Archive as an Ingress and allow OPC UA clients to subscribe to data from PI tags.",
+    "category": "PI",
+    "status": "Released",
+    "releasedIn": "2.1.0",
+    "votes": 0
+  },
+  {
     "id": "PVTI_lADOAVtvxM4BPYJQzgoU_U0",
     "title": "Multiple Ingress Inputs",
     "summary": "Allow admins to configure multiple instances of PI Data Archive and Asset Framework. Clients should be able to subscribe to any data from any input.",
