@@ -1,0 +1,37 @@
+---
+/**
+ * Site footer. Previously duplicated — and divergent — between the product and
+ * roadmap pages; now rendered once by BaseLayout for every page.
+ */
+interface Props {
+  /** Tint the footer with the brand colour instead of the page surface. */
+  variant?: 'plain' | 'brand';
+  /** Link classes, supplied by BaseLayout so both share one source of truth. */
+  linkClass: string;
+}
+
+const { variant = 'plain', linkClass } = Astro.props;
+
+const year = new Date().getFullYear();
+
+const shellClass =
+  variant === 'brand'
+    ? 'bg-brand-600 py-5 text-center'
+    : 'border-t border-[var(--color-border)] py-6 text-center';
+
+const copyrightClass =
+  variant === 'brand' ? 'text-xs text-white/60' : 'text-xs text-[var(--color-text-muted)]';
+---
+
+<footer class={shellClass}>
+  <div class="mx-auto flex max-w-7xl flex-col items-center gap-2 px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs">
+      <a href="https://cse-icon.com" class={linkClass}>CSE ICON, Inc.</a>
+      <a href="mailto:sales@cse-icon.com" class={linkClass}>sales@cse-icon.com</a>
+      <a href="/" class={linkClass}>All products</a>
+    </div>
+    <p class={copyrightClass}>
+      &copy; {year} CSE ICON, Inc. All rights reserved.
+    </p>
+  </div>
+</footer>

@@ -5,6 +5,7 @@ import {
   transformItem,
   preserveVoteCounts,
   validateRoadmapItem,
+  itemsMissingSummary,
 } from '../scripts/roadmap-helpers.mjs';
 
 // ── Helpers to build mock project items ───────────────────────────
@@ -332,5 +333,30 @@ describe('validateRoadmapItem', () => {
     });
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThanOrEqual(5);
+  });
+});
+
+// ── itemsMissingSummary ───────────────────────────────────────────
+
+describe('itemsMissingSummary', () => {
+  it('returns titles of items with an empty summary', () => {
+    const items = [
+      { title: 'Has summary', summary: 'Something useful.' },
+      { title: 'Blank', summary: '' },
+      { title: 'Whitespace only', summary: '   ' },
+    ];
+    expect(itemsMissingSummary(items)).toEqual(['Blank', 'Whitespace only']);
+  });
+
+  it('tolerates a missing summary property', () => {
+    expect(itemsMissingSummary([{ title: 'No field' }])).toEqual(['No field']);
+  });
+
+  it('returns an empty array when every item has a summary', () => {
+    expect(itemsMissingSummary([{ title: 'A', summary: 'a' }])).toEqual([]);
+  });
+
+  it('returns an empty array for no items', () => {
+    expect(itemsMissingSummary([])).toEqual([]);
   });
 });

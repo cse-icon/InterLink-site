@@ -1,3 +1,26 @@
+> **Archived — historical reference only.**
+>
+> This is the original build specification for the single-product InterLink site,
+> written before any code existed. It is kept for context on why things were
+> built the way they were. **Do not follow it as instructions.**
+>
+> It differs from what was actually built and from how the site works today:
+>
+> - It describes a single-product site at `interlink.cse-icon.com`. The site now
+>   serves multiple products at `products.cse-icon.com/<slug>`.
+> - Its two-step email-confirmation vote flow (`/api/confirm`, SendGrid) was
+>   **never built** — votes are recorded immediately.
+> - It specifies a `Public` checkbox field on the project board; the shipped sync
+>   uses a `Public?` single-select set to `Yes`.
+> - It says the roadmap syncs every 6 hours; it runs weekly.
+> - It references a `tailwind.config.mjs`; Tailwind 4 is configured in CSS, in
+>   `src/styles/global.css`.
+>
+> For current documentation see the [README](../../README.md) and
+> [docs/authoring-content.md](../authoring-content.md).
+
+---
+
 # InterLink Product Site — Build Plan
 
 > This document is the complete spec for building the InterLink marketing/product site.

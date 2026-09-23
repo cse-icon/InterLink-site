@@ -1,0 +1,80 @@
+---
+import { getEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import RoadmapBoard from '../../components/RoadmapBoard.astro';
+import VoteButton from '../../components/VoteButton.astro';
+import { getProducts } from '../../lib/products';
+import type { RoadmapItem } from '../../lib/roadmap';
+
+export async function getStaticPaths() {
+  const products = await getProducts();
+
+  // Only products that opted into a roadmap get a page, so a product without a
+  // board never renders an empty one.
+  return products
+    .filter((product) => product.data.roadmap.enabled)
+    .map((product) => ({
+      params: { product: product.id },
+      props: { product, siblings: products },
+    }));
+}
+
+const { product, siblings } = Astro.props;
+
+// Written by scripts/sync-roadmap.mjs, one file per product slug. Missing data
+// is tolerated so a newly opted-in product builds before its first sync runs.
+const roadmap = await getEntry('roadmaps', product.id);
+const items: RoadmapItem[] = roadmap?.data.items ?? [];
+
+const lastUpdated = roadmap
+  ? new Date(roadmap.data.lastUpdated).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  : null;
+---
+
+<BaseLayout
+  title={`Roadmap — ${product.data.name}`}
+  description={`See what's coming next for ${product.data.name}. Vote on the features you'd like to see.`}
+  product={product}
+  siblings={siblings}
+  activeHref={`/${product.id}/roadmap`}
+  footerVariant="brand"
+>
+  <section class="py-10 sm:py-14">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="mx-auto max-w-2xl text-center">
+        <h1 class="section-heading">Product Roadmap</h1>
+        <p class="section-description">
+          See what we're working on for {product.data.name} and what's next. Vote on the
+          features that matter most to you.
+        </p>
+        {lastUpdated && (
+          <p class="mt-3 text-sm text-[var(--color-text-muted)]">
+            Last updated: {lastUpdated}
+          </p>
+        )}
+      </div>
+    </div>
+  </section>
+
+  <section class="pb-14">
+    {items.length > 0 ? (
+      <RoadmapBoard items={items} />
+    ) : (
+      <div class="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
+        <p class="rounded-lg border border-dashed border-[var(--color-border)] p-8 text-sm text-[var(--color-text-muted)]">
+          The roadmap for {product.data.name} is being prepared. Check back soon, or
+          <a href={`mailto:${product.data.cta.contactEmail}`} class="text-brand-600 hover:underline dark:text-brand-400">
+            get in touch
+          </a>
+          to tell us what matters most to you.
+        </p>
+      </div>
+    )}
+  </section>
+
+  {items.length > 0 && <VoteButton productSlug={product.id} />}
+</BaseLayout>

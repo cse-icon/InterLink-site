@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://products.cse-icon.com/sitemap-index.xml
