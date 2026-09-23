@@ -1,6 +1,12 @@
 ---
-// This component provides the vote modal and client-side voting logic.
-// It is included once on the roadmap page and handles all vote buttons.
+// Vote modal and client-side voting logic. Included once per roadmap page;
+// handles every .vote-button on the page.
+interface Props {
+  /** Recorded alongside the vote so sales can segment interest by product. */
+  productSlug: string;
+}
+
+const { productSlug } = Astro.props;
 ---
 
 <div id="vote-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -16,7 +22,7 @@
     <p class="mt-2 text-sm text-[var(--color-text-muted)]">
       Enter your email to cast your vote. Your feedback helps us prioritize what to build next.
     </p>
-    <form id="vote-form" class="mt-4">
+    <form id="vote-form" class="mt-4" data-product={productSlug}>
       <input type="hidden" id="vote-item-id" name="itemId" />
       <label for="vote-email" class="block text-sm font-medium">Email address</label>
       <input
@@ -92,6 +98,7 @@
     const itemId = itemIdInput.value;
     const email = emailInput.value.trim();
     const useCase = useCaseInput.value.trim();
+    const product = form.dataset.product || '';
 
     if (!email) return;
 
@@ -112,7 +119,7 @@
       const res = await fetch(`${API_URL}/api/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemId, email, useCase }),
+        body: JSON.stringify({ itemId, email, useCase, product }),
       });
 
       const data = await res.json();

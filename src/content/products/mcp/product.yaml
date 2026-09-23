@@ -1,0 +1,40 @@
+# MCP Servers
+#
+# draft: true keeps this product out of the published site and the product index.
+# Before flipping it to false:
+#   1. Replace every TODO in variants/pi.md and variants/geo-scada.md.
+#   2. Confirm the shared sections in sections/ are accurate for all three
+#      servers, not just Canary.
+# See docs/authoring-content.md.
+draft: true
+
+name: MCP Servers
+order: 20
+shortDescription: >-
+  Let AI assistants query your process historian in plain English. Read-only
+  Model Context Protocol servers for Canary, AVEVA PI, and Geo SCADA — with
+  analytics that return answers instead of raw data.
+
+tagline: Give your AI assistant a safe, read-only window into process data
+subtitle: >-
+  CSE ICON MCP servers connect Claude, Cursor, ChatGPT, and any other Model
+  Context Protocol client to your historian — with tag discovery, history,
+  events, and server-side analytics that return computed answers rather than
+  thousands of raw points.
+
+cta:
+  heading: Ready to put AI to work on your process data?
+  body: Tell us which historian you run and we'll get you set up with a trial.
+  contactEmail: sales@cse-icon.com
+
+seo:
+  title: MCP Servers — AI access to your process historian
+  description: >-
+    Read-only Model Context Protocol servers from CSE ICON for Canary, AVEVA PI,
+    and Geo SCADA. Let AI assistants query process data in plain English, with
+    analytics that return answers instead of raw points.
+
+# No public board yet. To add one later, set enabled: true and point
+# projectNumber at the org project — nothing else needs to change.
+roadmap:
+  enabled: false

@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getProducts } from '../lib/products';
+
+const products = await getProducts();
+---
+
+<BaseLayout title="Page not found — CSE ICON Products" description="The page you were looking for could not be found." siblings={products}>
+  <section class="py-20 sm:py-28">
+    <div class="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
+      <p class="text-sm font-semibold uppercase tracking-widest text-brand-600 dark:text-brand-400">404</p>
+      <h1 class="section-heading mt-3">Page not found</h1>
+      <p class="section-description mt-2">
+        That page doesn't exist, or it may have moved. Each product now lives under its
+        own path — for example <code class="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-sm">/interlink</code>.
+      </p>
+
+      {products.length > 0 && (
+        <div class="mt-8 flex flex-wrap justify-center gap-2">
+          {products.map((p) => (
+            <a
+              href={`/${p.id}`}
+              class="inline-flex items-center rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-semibold transition-colors hover:border-brand-300 hover:text-brand-600 dark:hover:border-brand-700"
+            >
+              {p.data.name}
+            </a>
+          ))}
+        </div>
+      )}
+
+      <p class="mt-8">
+        <a href="/" class="text-sm font-semibold text-brand-600 hover:underline dark:text-brand-400">
+          Browse all products
+        </a>
+      </p>
+    </div>
+  </section>
+</BaseLayout>

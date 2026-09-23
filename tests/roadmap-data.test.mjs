@@ -1,104 +1,140 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { resolve, dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateRoadmapItem } from '../scripts/roadmap-helpers.mjs';
+import { parse as parseYaml } from 'yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const roadmapPath = resolve(__dirname, '..', 'src', 'data', 'roadmap.json');
-const metaPath = resolve(__dirname, '..', 'src', 'data', 'roadmap-meta.json');
+const REPO_ROOT = resolve(__dirname, '..');
+const ROADMAP_DIR = join(REPO_ROOT, 'src', 'data', 'roadmap');
+const PRODUCTS_DIR = join(REPO_ROOT, 'src', 'content', 'products');
 
-const roadmapData = JSON.parse(readFileSync(roadmapPath, 'utf-8'));
-const metaData = JSON.parse(readFileSync(metaPath, 'utf-8'));
+const VALID_CATEGORIES = ['PI', 'OPC UA', 'Federation', 'Platform', 'Configuration', 'Security'];
+const VALID_STATUSES = ['Backlog', 'Investigating', 'In Development', 'Released'];
 
-// ── roadmap.json schema validation ────────────────────────────────
+/** Every synced roadmap file, one per product slug. */
+const roadmapFiles = existsSync(ROADMAP_DIR)
+  ? readdirSync(ROADMAP_DIR)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => ({
+        slug: basename(f, '.json'),
+        data: JSON.parse(readFileSync(join(ROADMAP_DIR, f), 'utf-8')),
+      }))
+  : [];
 
-describe('roadmap.json', () => {
-  it('is a non-empty array', () => {
-    expect(Array.isArray(roadmapData)).toBe(true);
-    expect(roadmapData.length).toBeGreaterThan(0);
+/** Product slugs that opted into a roadmap, read from their content config. */
+const roadmapEnabledSlugs = existsSync(PRODUCTS_DIR)
+  ? readdirSync(PRODUCTS_DIR, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .filter((slug) => existsSync(join(PRODUCTS_DIR, slug, 'product.yaml')))
+      .filter((slug) => {
+        const cfg = parseYaml(readFileSync(join(PRODUCTS_DIR, slug, 'product.yaml'), 'utf-8'));
+        return cfg?.roadmap?.enabled === true;
+      })
+  : [];
+
+// ── wiring between products and their synced data ─────────────────
+
+describe('roadmap wiring', () => {
+  it('at least one product has a roadmap', () => {
+    expect(roadmapEnabledSlugs.length).toBeGreaterThan(0);
   });
 
-  it('contains no duplicate IDs', () => {
-    const ids = roadmapData.map((item) => item.id);
-    const uniqueIds = new Set(ids);
-    expect(uniqueIds.size).toBe(ids.length);
+  it('every roadmap data file belongs to a roadmap-enabled product', () => {
+    for (const { slug } of roadmapFiles) {
+      expect(
+        roadmapEnabledSlugs,
+        `src/data/roadmap/${slug}.json has no product with roadmap.enabled`,
+      ).toContain(slug);
+    }
   });
 
-  it.each(roadmapData.map((item) => [item.title, item]))(
-    'validates item "%s"',
-    (_title, item) => {
+  it('every roadmap-enabled product declares a projectNumber', () => {
+    for (const slug of roadmapEnabledSlugs) {
+      const cfg = parseYaml(readFileSync(join(PRODUCTS_DIR, slug, 'product.yaml'), 'utf-8'));
+      expect(
+        cfg.roadmap.projectNumber,
+        `${slug}: roadmap.enabled is true but projectNumber is missing`,
+      ).toBeTruthy();
+    }
+  });
+});
+
+// ── per-file schema validation ────────────────────────────────────
+
+describe.each(roadmapFiles.map((f) => [f.slug, f.data]))('roadmap/%s.json', (slug, data) => {
+  it('has lastUpdated and an items array', () => {
+    expect(data).toHaveProperty('lastUpdated');
+    expect(Array.isArray(data.items)).toBe(true);
+  });
+
+  it('lastUpdated is a valid ISO 8601 date, not in the future', () => {
+    const date = new Date(data.lastUpdated);
+    expect(date.toString()).not.toBe('Invalid Date');
+    expect(date.toISOString()).toBe(data.lastUpdated);
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    expect(date.getTime()).toBeLessThan(tomorrow.getTime());
+  });
+
+  it('contains no duplicate item IDs', () => {
+    const ids = data.items.map((item) => item.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('every item passes shape validation', () => {
+    for (const item of data.items) {
       const result = validateRoadmapItem(item);
-      expect(result.errors).toEqual([]);
-      expect(result.valid).toBe(true);
-    },
-  );
+      expect(result.errors, `Item "${item.title}" in ${slug}`).toEqual([]);
+    }
+  });
 
-  it('every item has a non-empty summary', () => {
-    for (const item of roadmapData) {
-      expect(item.summary.length, `Item "${item.title}" has an empty summary`).toBeGreaterThan(0);
+  // Summary is allowed to be empty: transformItem defaults a missing board
+  // field to ''. The sync warns about blanks so they get filled on the board
+  // rather than failing the build here.
+  it('every item has a string summary', () => {
+    for (const item of data.items) {
+      expect(typeof item.summary, `Item "${item.title}" in ${slug}`).toBe('string');
     }
   });
 
   it('released items have a releasedIn version', () => {
-    const releasedItems = roadmapData.filter((item) => item.status === 'Released');
-    for (const item of releasedItems) {
+    for (const item of data.items.filter((i) => i.status === 'Released')) {
       expect(item.releasedIn, `Released item "${item.title}" is missing releasedIn`).toBeTruthy();
     }
   });
 
   it('non-released items have null releasedIn', () => {
-    const nonReleasedItems = roadmapData.filter((item) => item.status !== 'Released');
-    for (const item of nonReleasedItems) {
+    for (const item of data.items.filter((i) => i.status !== 'Released')) {
       expect(item.releasedIn, `Non-released item "${item.title}" has releasedIn set`).toBeNull();
     }
   });
 
   it('votes are non-negative integers', () => {
-    for (const item of roadmapData) {
+    for (const item of data.items) {
       expect(Number.isInteger(item.votes), `Item "${item.title}" has non-integer votes`).toBe(true);
       expect(item.votes).toBeGreaterThanOrEqual(0);
     }
   });
 
   it('uses only recognized categories', () => {
-    const validCategories = ['PI', 'OPC UA', 'Federation', 'Platform', 'Configuration', 'Security'];
-    for (const item of roadmapData) {
+    for (const item of data.items) {
       expect(
-        validCategories,
+        VALID_CATEGORIES,
         `Item "${item.title}" has unknown category "${item.category}"`,
       ).toContain(item.category);
     }
   });
 
   it('uses only recognized statuses', () => {
-    const validStatuses = ['Backlog', 'Investigating', 'In Development', 'Released'];
-    for (const item of roadmapData) {
+    for (const item of data.items) {
       expect(
-        validStatuses,
+        VALID_STATUSES,
         `Item "${item.title}" has unknown status "${item.status}"`,
       ).toContain(item.status);
     }
-  });
-});
-
-// ── roadmap-meta.json ─────────────────────────────────────────────
-
-describe('roadmap-meta.json', () => {
-  it('has a lastUpdated field', () => {
-    expect(metaData).toHaveProperty('lastUpdated');
-  });
-
-  it('lastUpdated is a valid ISO 8601 date', () => {
-    const date = new Date(metaData.lastUpdated);
-    expect(date.toString()).not.toBe('Invalid Date');
-    expect(date.toISOString()).toBe(metaData.lastUpdated);
-  });
-
-  it('lastUpdated is not in the future', () => {
-    const date = new Date(metaData.lastUpdated);
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    expect(date.getTime()).toBeLessThan(tomorrow.getTime());
   });
 });

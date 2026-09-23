@@ -1,8 +1,18 @@
-# InterLink Product Site
+# CSE ICON Product Sites
 
-Product marketing site and public roadmap for **CSE ICON InterLink**
+Product marketing sites and public roadmaps for CSE ICON software — one repo, one
+deployment, one product per URL slug.
 
-**Live URL:** https://interlink.products.cse-icon.com
+**Live URL:** https://products.cse-icon.com
+
+| Product | Path | Roadmap |
+|---|---|---|
+| InterLink | [/interlink](https://products.cse-icon.com/interlink) | Yes — org project #4 |
+| MCP Servers | `/mcp` | No |
+
+> **`/mcp` is currently drafted** (`draft: true` in its `product.yaml`) so it does
+> not publish. Its PI and Geo SCADA variants contain `TODO` placeholders that need
+> real copy first. See [docs/authoring-content.md](docs/authoring-content.md).
 
 ---
 
@@ -10,30 +20,20 @@ Product marketing site and public roadmap for **CSE ICON InterLink**
 
 - [Architecture Overview](#architecture-overview)
 - [Repository Structure](#repository-structure)
+- [Adding or Editing Content](#adding-or-editing-content)
+- [Adding a New Product](#adding-a-new-product)
 - [Initial Setup](#initial-setup)
   - [Prerequisites](#prerequisites)
-  - [1. GitHub Repository Setup](#1-github-repository-setup)
-  - [2. GitHub Pages Setup](#2-github-pages-setup)
-  - [3. DNS Configuration](#3-dns-configuration)
-  - [4. Azure Resources Setup](#4-azure-resources-setup)
-  - [5. GitHub Projects Board Setup](#5-github-projects-board-setup)
-  - [6. GitHub App for Roadmap Sync](#6-github-app-for-roadmap-sync)
-  - [7. Configure Repository Secrets & Variables](#7-configure-repository-secrets--variables)
-  - [8. First Deployment](#8-first-deployment)
+  - [1. GitHub Pages Setup](#1-github-pages-setup)
+  - [2. DNS Configuration](#2-dns-configuration)
+  - [3. Azure Resources](#3-azure-resources)
+  - [4. GitHub Projects Board](#4-github-projects-board)
+  - [5. GitHub App for Roadmap Sync](#5-github-app-for-roadmap-sync)
+  - [6. Repository Secrets & Variables](#6-repository-secrets--variables)
 - [Local Development](#local-development)
 - [How to Push Updates](#how-to-push-updates)
-  - [Updating Site Content or Features](#updating-site-content-or-features)
-  - [Updating the Roadmap](#updating-the-roadmap)
-  - [Updating the Vote API](#updating-the-vote-api)
-  - [Manual Deployments](#manual-deployments)
 - [Voting System](#voting-system)
-  - [How It Works](#how-it-works)
-  - [Anti-Spam Measures](#anti-spam-measures)
-  - [Azure Table Schema](#azure-table-schema)
-  - [API Endpoints](#api-endpoints)
 - [Roadmap Sync](#roadmap-sync)
-  - [GitHub Projects Field Requirements](#github-projects-field-requirements)
-  - [Sync Behavior](#sync-behavior)
 - [Estimated Azure Costs](#estimated-azure-costs)
 - [Troubleshooting](#troubleshooting)
 
@@ -41,41 +41,63 @@ Product marketing site and public roadmap for **CSE ICON InterLink**
 
 ## Architecture Overview
 
+A statically generated site on GitHub Pages. There is **no runtime GitHub
+integration** — roadmap data is fetched at CI time by a scheduled Action and
+committed to the repo as JSON. The only live backend is the vote API.
+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        GitHub (cse-icon org)                    │
-│                                                                 │
-│  ┌──────────────┐    ┌──────────────┐    ┌───────────────────┐  │
-│  │  Main Branch  │───▶│ GitHub Pages │───▶│  Static Site      │  │
-│  │  (push)       │    │ (deploy)     │    │  Astro + Tailwind │  │
-│  └──────────────┘    └──────────────┘    └───────────────────┘  │
-│         │                                         │             │
-│         │ (api/ changes)          (vote requests)  │            │
-│         ▼                                         ▼             │
-│  ┌──────────────┐    ┌──────────────────────────────────────┐   │
-│  │ GitHub Action │───▶│        Azure Function App            │   │
-│  │ (deploy func) │    │  POST /api/vote  GET /api/vote/{id}  │   │
-│  └──────────────┘    └──────────────┬───────────────────────┘   │
-│                                     │                           │
-│  ┌──────────────┐    ┌──────────────▼───────────────────────┐   │
-│  │ GitHub Action │    │     Azure Table Storage              │   │
-│  │ (daily sync)  │    │  votes table  │  votecounts table    │   │
-│  └──────┬───────┘    └──────────────────────────────────────┘   │
-│         │                                                       │
-│  ┌──────▼───────┐                                               │
-│  │ GitHub       │                                               │
-│  │ Projects v2  │  (private board, public items synced daily)   │
-│  └──────────────┘                                               │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         GitHub (cse-icon org)                        │
+│                                                                      │
+│  ┌──────────────┐    ┌──────────────┐    ┌────────────────────────┐  │
+│  │ Main branch  │───▶│ GitHub Pages │───▶│ Static site            │  │
+│  │ (push)       │    │ (deploy)     │    │ Astro 6 + Tailwind 4   │  │
+│  └──────────────┘    └──────────────┘    │ /  /interlink  /mcp    │  │
+│         │                                └───────────┬────────────┘  │
+│         │ (api/ changes)                             │ (votes)       │
+│         ▼                                            ▼               │
+│  ┌──────────────┐    ┌───────────────────────────────────────────┐   │
+│  │ GitHub Action│───▶│           Azure Function App              │   │
+│  │ (deploy func)│    │  POST /api/vote   GET /api/vote/{itemId}  │   │
+│  └──────────────┘    └──────────────────┬────────────────────────┘   │
+│                                         │                            │
+│  ┌──────────────┐    ┌──────────────────▼────────────────────────┐   │
+│  │ GitHub Action│    │            Azure Table Storage            │   │
+│  │ (weekly sync)│    │    votes table    │   votecounts table    │   │
+│  └──────┬───────┘    └───────────────────────────────────────────┘   │
+│         │                                                            │
+│  ┌──────▼─────────────────────────────────────────────────────────┐  │
+│  │ GitHub Projects v2 — one private board per product             │  │
+│  │ Only items marked `Public? = Yes` are ever published           │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 | Layer | Technology | Hosted On |
 |---|---|---|
-| Static site | Astro (SSG) + Tailwind CSS | GitHub Pages |
+| Static site | Astro 6 (SSG) + Tailwind CSS 4 | GitHub Pages |
+| Content | Astro content collections (YAML + Markdown), Zod-validated | In repo |
 | Vote API | Azure Functions v4 (Node.js / TypeScript) | Azure (Flex Consumption) |
 | Vote storage | Azure Table Storage | Azure Storage Account |
 | Roadmap data | GitHub Projects v2 → JSON via GitHub Action | Committed to repo |
 | CI/CD | GitHub Actions | GitHub |
+
+### Content model
+
+Each product is a folder under `src/content/products/` whose **name is its URL
+slug**. Pages are generated from that content by two dynamic routes, so adding a
+product means adding content — no new pages, routes, or CI configuration.
+
+| URL | Generated by |
+|---|---|
+| `/` | `src/pages/index.astro` — product index |
+| `/<slug>` | `src/pages/[product]/index.astro` |
+| `/<slug>/roadmap` | `src/pages/[product]/roadmap.astro` — only for products with `roadmap.enabled` |
+| `/404` | `src/pages/404.astro` |
+
+Schemas live in [src/content.config.ts](src/content.config.ts). They are strict on
+purpose: a missing field, an unknown icon name, or a roadmap enabled without a
+project number **fails the build**, so malformed content cannot reach production.
 
 ---
 
@@ -84,232 +106,213 @@ Product marketing site and public roadmap for **CSE ICON InterLink**
 ```
 InterLink-site/
 ├── .github/workflows/
-│   ├── deploy-site.yml          # Build Astro → deploy to GitHub Pages
-│   ├── deploy-functions.yml     # Build & deploy Azure Functions
-│   └── sync-roadmap.yml         # Pull roadmap from GitHub Projects (daily)
-├── api/
+│   ├── deploy-site.yml          # Test, build Astro → deploy to GitHub Pages
+│   ├── deploy-functions.yml     # Build & deploy the Azure Function
+│   └── sync-roadmap.yml         # Pull roadmaps from GitHub Projects (weekly)
+├── api/                         # Azure Functions app (separate npm package)
 │   ├── vote/index.ts            # POST /api/vote + GET /api/vote/{itemId}
-│   ├── host.json                # Azure Functions runtime config
-│   ├── local.settings.json      # Local dev settings (not committed in prod)
+│   ├── vote/email.ts            # Email validation + normalisation for dedupe
+│   ├── host.json                # Functions runtime config
+│   ├── local.settings.json      # Local dev settings (dev placeholders only)
 │   ├── package.json
 │   └── tsconfig.json
+├── docs/
+│   ├── authoring-content.md     # How to edit copy and add products (non-devs)
+│   └── archive/
+│       └── original-build-plan.md   # Historical spec — not current
 ├── public/
 │   ├── CNAME                    # Custom domain for GitHub Pages
-│   └── favicon.svg
+│   ├── robots.txt
+│   ├── favicon.png
+│   ├── cse-icon-logo.png
+│   └── images/                  # Product imagery
 ├── scripts/
-│   └── sync-roadmap.mjs         # Fetches roadmap from GitHub Projects GraphQL API
+│   ├── sync-roadmap.mjs         # Multi-product roadmap sync (GraphQL)
+│   └── roadmap-helpers.mjs      # Pure transforms, unit-tested
 ├── src/
+│   ├── content.config.ts        # Collection schemas (products, sections, variants, roadmaps)
+│   ├── content/products/
+│   │   ├── interlink/
+│   │   │   ├── product.yaml     # Identity, hero, CTA, SEO, roadmap opt-in
+│   │   │   └── sections/*.md    # Feature sections, ordered by filename
+│   │   └── mcp/
+│   │       ├── product.yaml
+│   │       ├── sections/*.md
+│   │       └── variants/*.md    # Canary / PI / Geo SCADA anchored sections
 │   ├── components/
-│   │   ├── FeatureCard.astro    # Individual feature card
-│   │   ├── FeatureSection.astro # Topic section (heading + grid of cards)
-│   │   ├── Hero.astro           # Landing page hero
-│   │   ├── RoadmapBoard.astro   # Kanban board with category filtering
+│   │   ├── FeatureCard.astro    # Single feature card
+│   │   ├── FeatureSection.astro # Section heading + grid of cards
+│   │   ├── Footer.astro         # Site footer (one copy, used everywhere)
+│   │   ├── Hero.astro           # Product hero with prop-driven CTAs
+│   │   ├── ImageBreak.astro     # Full-width image band
+│   │   ├── ProductCard.astro    # Card on the product index
+│   │   ├── RoadmapBoard.astro   # Kanban board + category filtering
 │   │   ├── RoadmapItem.astro    # Single roadmap card
+│   │   ├── VariantSection.astro # One product flavour, anchored
 │   │   └── VoteButton.astro     # Vote modal (client-side JS)
-│   ├── data/
-│   │   ├── roadmap.json         # Roadmap items (auto-synced or manual)
-│   │   └── roadmap-meta.json    # Sync metadata (lastUpdated timestamp)
+│   ├── data/roadmap/
+│   │   └── interlink.json       # Synced roadmap data, one file per product slug
 │   ├── layouts/
-│   │   └── BaseLayout.astro     # Shared shell: nav, footer, dark mode, meta
+│   │   └── BaseLayout.astro     # Shell: nav, footer, meta, dark mode, switcher
+│   ├── lib/
+│   │   ├── icons.ts             # Named inline SVGs, referenced from content
+│   │   ├── products.ts          # Collection helpers (getProducts, navFor, …)
+│   │   └── roadmap.ts           # Statuses, categories, badge classes, types
 │   ├── pages/
-│   │   ├── index.astro          # Product features page
-│   │   └── roadmap.astro        # Roadmap + voting page
+│   │   ├── index.astro          # Product index
+│   │   ├── 404.astro
+│   │   └── [product]/
+│   │       ├── index.astro      # Product page
+│   │       └── roadmap.astro    # Roadmap + voting
 │   └── styles/
-│       └── global.css           # Tailwind directives + custom component classes
+│       └── global.css           # Tailwind 4 entry, theme tokens, component classes
+├── tests/                       # Vitest — run in CI before every deploy
 ├── astro.config.mjs
-├── tailwind.config.mjs
+├── postcss.config.mjs
 ├── tsconfig.json
-├── package.json
-└── site.md                      # Original build specification
+├── vitest.config.ts
+└── package.json
 ```
+
+> Tailwind 4 is configured **in CSS**, in `src/styles/global.css` (`@theme`,
+> `@layer`). There is no `tailwind.config.mjs`.
+
+---
+
+## Adding or Editing Content
+
+Product copy is plain YAML and Markdown, editable in GitHub's web UI with no
+local setup. See **[docs/authoring-content.md](docs/authoring-content.md)** for
+the full guide — field reference, icon list, image bands, variants, and what to
+do when the build complains.
+
+The short version: edit a file under `src/content/products/<slug>/`, commit to
+`main`, and the site rebuilds in about a minute.
+
+---
+
+## Adding a New Product
+
+1. Create `src/content/products/<slug>/product.yaml` (copy an existing one). The
+   folder name is the URL, so use lowercase.
+2. Add at least one section in `sections/`.
+3. Keep `draft: true` while writing; remove it to publish.
+4. Optionally opt into a roadmap:
+
+   ```yaml
+   roadmap:
+     enabled: true
+     org: cse-icon
+     projectNumber: 7      # from /orgs/cse-icon/projects/7
+   ```
+
+That is all. The page, nav, index card, sitemap entry, and roadmap sync all pick
+it up automatically. The project number is safe to commit — the board stays
+private and is unreadable without the sync workflow's GitHub App credentials.
 
 ---
 
 ## Initial Setup
+
+Most of this is already done. It is documented for disaster recovery and for
+standing up an equivalent site.
 
 ### Prerequisites
 
 - **Node.js 24** (LTS) — [download](https://nodejs.org/)
 - **Azure CLI** — [install](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
 - **Azure Functions Core Tools v4** — [install](https://learn.microsoft.com/en-us/azure/azure-functions/functions-run-local)
-- **GitHub CLI** (optional, for testing) — [install](https://cli.github.com/)
-- Admin access to the `cse-icon` GitHub organization
+- Admin access to the `cse-icon` GitHub organisation
 - An Azure subscription with permission to create resources
 
----
+### 1. GitHub Pages Setup
 
-### 1. GitHub Repository Setup
+1. **Settings → Pages**
+2. **Build and deployment → Source**: select **GitHub Actions**
+3. **Custom domain**: `products.cse-icon.com`, and tick **Enforce HTTPS**
 
-The repo lives in the `cse-icon` org. If it isn't there yet:
-
-```bash
-# Push to the org
-git remote add origin https://github.com/cse-icon/InterLink-site.git
-git push -u origin main
-```
-
----
-
-### 2. GitHub Pages Setup
-
-1. Go to **Settings → Pages** in the GitHub repo
-2. Under **Build and deployment**:
-   - **Source**: select **GitHub Actions** (not "Deploy from a branch")
-3. Under **Custom domain**:
-   - Enter `interlink.products.cse-icon.com`
-   - Check **Enforce HTTPS**
-4. GitHub will verify the domain — this requires the DNS step below
-
----
-
-### 3. DNS Configuration
-
-Add a CNAME record in your DNS provider (wherever `cse-icon.com` is managed):
+### 2. DNS Configuration
 
 | Type | Name | Value | TTL |
 |---|---|---|---|
-| CNAME | `interlink.products` | `cse-icon.github.io` | 3600 |
-
-To verify it's working:
+| CNAME | `products` | `cse-icon.github.io` | 3600 |
 
 ```bash
-dig interlink.products.cse-icon.com +short
+dig products.cse-icon.com +short
 # Should return: cse-icon.github.io
 ```
 
-GitHub will automatically provision an SSL certificate once DNS propagates (usually 5–30 minutes).
+GitHub provisions the TLS certificate once DNS propagates (5–30 minutes).
 
----
+> **Migration note:** the old `interlink.products` CNAME has been retired. GitHub
+> Pages serves only one custom domain per repo, so old
+> `interlink.products.cse-icon.com` URLs no longer resolve. InterLink now lives at
+> `products.cse-icon.com/interlink`.
 
-### 4. Azure Resources Setup
+### 3. Azure Resources
 
-You need three Azure resources. All can live in a single resource group.
+Current resources, all in resource group **`InterLink`** (South Central US):
 
-#### 4a. Create a Resource Group
+| Resource | Name | Purpose |
+|---|---|---|
+| Function App | `cse-interlink-votes` | Vote API (Flex Consumption) |
+| Storage Account | `cseinterlink` | Vote data in Table Storage |
+| App Service Plan | `ASP-InterLink-87cc` | Hosts the Function App |
+| Application Insights | `cse-interlink` | Function telemetry |
+
+The Function App hostname is `cse-interlink-votes.azurewebsites.net`, which is
+what the repo variable `PUBLIC_VOTE_API_URL` must point at.
+
+<details>
+<summary>Creating these from scratch</summary>
 
 ```bash
 az login
-az group create --name rg-interlink-site --location eastus
-```
+az group create --name InterLink --location southcentralus
 
-#### 4b. Create a Storage Account
-
-This stores the vote data in Table Storage.
-
-```bash
 az storage account create \
   --name cseinterlink \
   --resource-group InterLink \
-  --location eastus \
+  --location southcentralus \
   --sku Standard_LRS \
   --kind StorageV2
-```
 
-Get the connection string (you'll need this later):
-
-```bash
 az storage account show-connection-string \
-  --name interlinkvotest \
+  --name cseinterlink \
   --resource-group InterLink \
   --query connectionString \
   --output tsv
 ```
 
-Save this value — it goes into the Function App settings as `AZURE_STORAGE_CONNECTION_STRING`.
-
-#### 4c. Create a Function App
-
-Use the **Flex Consumption** hosting plan — it scales to zero (no cost when idle), has fast cold starts, and includes a generous free grant.
-
-**Via the Azure Portal (recommended):**
-
-1. Go to **Function App → Create**
-2. Select **Flex Consumption** as the hosting plan
-3. Fill in:
-   - **Function App name:** `cse-interlink-votes`
-   - **Resource Group:** `InterLink`
-   - **Runtime stack:** Node.js
-   - **Version:** 24
-   - **Region:** South Central US
-   - **Instance size:** 512 MB
-   - **Storage account:** select `cseinterlink` from step 4b
-4. Review + Create
-
-**Or via CLI:**
+Create the Function App on the **Flex Consumption** plan (scales to zero, fast
+cold starts, generous free grant), Node.js 24 runtime, using the storage account
+above. Then set its configuration:
 
 ```bash
-az functionapp create \
+az functionapp config appsettings set \
   --name cse-interlink-votes \
   --resource-group InterLink \
-  --storage-account cseinterlink \
-  --flexconsumption-location eastus \
-  --runtime node \
-  --runtime-version 24
-```
-
-#### 4d. Configure Function App Settings
-
-```bash
-# Get your storage connection string from step 4b
-CONN_STRING="<your-connection-string-from-4b>"
-
-az functionapp config appsettings set \
-  --name interlink-votes \
-  --resource-group rg-interlink-site \
   --settings \
-    "AZURE_STORAGE_CONNECTION_STRING=$CONN_STRING" \
-    "SITE_URL=https://interlink.products.cse-icon.com"
+    "AZURE_STORAGE_CONNECTION_STRING=<connection-string>" \
+    "SITE_URL=https://products.cse-icon.com"
 ```
 
-The `SITE_URL` setting controls the CORS origin — only requests from your site domain are accepted.
+`SITE_URL` is the **CORS allow-origin** — only requests from that origin are
+accepted.
 
-#### 4e. Set Up Azure Service Principal for GitHub Actions
-
-Flex Consumption apps don't support publish profile auth. Instead, create a **service principal with federated credentials** so GitHub Actions can deploy securely without storing secrets.
-
-**Create an App Registration and service principal:**
+**Service principal for GitHub Actions.** Flex Consumption does not support
+publish-profile auth, so deployment uses a service principal with an OIDC
+federated credential — no stored secrets.
 
 ```bash
-# Create the app registration
-az ad app create --display-name "InterLink GitHub Deploy"
-# Note the "appId" from the output — you'll need it for every step below
-
-# Create the service principal
+az ad app create --display-name "InterLink GitHub Deploy"   # note the appId
 az ad sp create --id <appId>
-```
 
-**Grant it the minimum required role on the Function App only:**
-
-```bash
 az role assignment create \
   --assignee <appId> \
   --role "Website Contributor" \
   --scope /subscriptions/<subscription-id>/resourceGroups/InterLink/providers/Microsoft.Web/sites/cse-interlink-votes
-```
 
-> **Why Website Contributor?** It grants permission to manage the Function App (deploy code, read settings) without access to other resources in the resource group. This follows least-privilege — the service principal can't touch the storage account, other apps, or resource group settings.
-
-**Add a federated credential for GitHub Actions:**
-
-This lets GitHub Actions authenticate using OIDC — no client secrets to rotate.
-
-**Via the Azure Portal (recommended):**
-
-1. Go to **Microsoft Entra ID → App registrations** → select **InterLink GitHub Deploy**
-2. In the sidebar, click **Certificates & secrets**
-3. Click the **Federated credentials** tab → **Add credential**
-4. For **Federated credential scenario**, select **GitHub Actions deploying Azure resources**
-5. Fill in:
-   - **Organization:** `cse-icon`
-   - **Repository:** `InterLink-site`
-   - **Entity type:** Branch
-   - **GitHub branch name:** `main`
-   - **Name:** `github-deploy`
-6. Click **Add**
-
-**Or via CLI:**
-
-```bash
 az ad app federated-credential create --id <appId> --parameters '{
   "name": "github-deploy",
   "issuer": "https://token.actions.githubusercontent.com",
@@ -318,297 +321,259 @@ az ad app federated-credential create --id <appId> --parameters '{
 }'
 ```
 
-> **Note:** The credential is scoped to the `main` branch. If you need to deploy from other branches, add additional federated credentials with the appropriate branch name.
+`Website Contributor` is deliberately narrow: it can deploy to and read the
+Function App, but cannot touch the storage account or other resources.
 
-**Gather these three values for step 7:**
+The federated credential is scoped to `main`. Deploying from another branch needs
+an additional credential for that branch.
 
-| Value | Where to find it |
-|---|---|
-| **Client ID** | The `appId` from the app registration |
-| **Tenant ID** | Run `az account show --query tenantId -o tsv` |
-| **Subscription ID** | Run `az account show --query id -o tsv` |
+</details>
 
----
+### 4. GitHub Projects Board
 
-### 5. GitHub Projects Board Setup
+Each product with a roadmap points at its own private Projects v2 board in the
+`cse-icon` org. InterLink uses **project #4**.
 
-The roadmap page is powered by a GitHub Projects v2 board. Create one in the `cse-icon` org:
+1. https://github.com/orgs/cse-icon/projects → **New project**
+2. Note the number from the URL (`/orgs/cse-icon/projects/4` → `4`)
+3. Add it to the product's `product.yaml` under `roadmap.projectNumber`
 
-1. Go to https://github.com/orgs/cse-icon/projects → **New project**
-2. Name it something like "InterLink Roadmap"
-3. Note the **project number** from the URL (e.g., `https://github.com/orgs/cse-icon/projects/5` → number is `5`)
-
-#### Required Custom Fields
-
-Add these custom fields to the project:
+#### Required custom fields
 
 | Field Name | Type | Values / Notes |
 |---|---|---|
+| `Public?` | Single select | `Yes` — **only items set to `Yes` are published**; leave blank to exclude |
 | `Public Status` | Single select | `Backlog`, `Investigating`, `In Development`, `Released` |
-| `Public?` | Single select | Single value: `Yes` — leave blank to exclude from the site |
-| `Public Released In` | Text | Version string, e.g., `v2.1.0` |
+| `Public Summary` | Text | The public-facing description shown on the card |
 | `Public Category` | Single select | `PI`, `OPC UA`, `Federation`, `Platform`, `Configuration`, `Security` |
-| `Public Summary` | Text | Public-facing description (shown on the site instead of issue body) |
+| `Public Released In` | Text | Version string, e.g. `v2.1.0` |
 
----
+Field names must match exactly. An item missing `Public Status` defaults to
+`Backlog`; one missing `Public Category` defaults to `Platform`.
 
-### 6. GitHub App for Roadmap Sync
+### 5. GitHub App for Roadmap Sync
 
-The sync action needs a token to read the private project board. A **GitHub App** is the recommended approach — it's owned by the org (not tied to any individual's account), has granular permissions, and won't break if someone leaves.
+The sync needs a token that can read private org project boards. A **GitHub App**
+is used rather than a personal token: it is owned by the org, scoped narrowly, and
+does not break when someone leaves. One app covers **every** product's board.
 
-#### 6a. Create the App
-
-1. Go to https://github.com/organizations/cse-icon/settings/apps → **New GitHub App**
-2. Fill in:
+1. https://github.com/organizations/cse-icon/settings/apps → **New GitHub App**
    - **Name:** `InterLink Roadmap Sync`
-   - **Homepage URL:** `https://interlink.products.cse-icon.com`
-   - **Webhook:** uncheck "Active" (we don't need webhook events)
-3. Under **Permissions → Organization permissions:**
-   - **Projects:** Read-only
-4. Under **Where can this GitHub App be installed?**
-   - Select "Only on this account"
-5. Click **Create GitHub App**
+   - **Homepage URL:** `https://products.cse-icon.com`
+   - **Webhook:** untick **Active**
+2. **Permissions → Organization permissions → Projects: Read-only**
+3. **Where can this app be installed?** → *Only on this account*
+4. Create it, then **Generate a private key** (downloads a `.pem`)
+5. **Install App** → install on the `cse-icon` organisation
+6. Note the **App ID** from the app's General settings page
 
-#### 6b. Generate a Private Key
+### 6. Repository Secrets & Variables
 
-1. On the app's settings page, scroll to **Private keys**
-2. Click **Generate a private key** — a `.pem` file will download
-3. Keep this file safe; you'll need its contents for a GitHub secret
+**Settings → Secrets and variables → Actions**
 
-#### 6c. Install the App on the Org
+#### Secrets
 
-1. On the app's settings page, click **Install App** in the sidebar
-2. Install it on the `cse-icon` organization
-
-#### 6d. Note the App ID and Installation ID
-
-- **App ID:** shown at the top of the app's **General** settings page
-- **Installation ID:** after installing, go to https://github.com/organizations/cse-icon/settings/installations — click **Configure** next to the app — the installation ID is the number at the end of the URL (e.g., `.../installations/12345678` → `12345678`)
-
----
-
-### 7. Configure Repository Secrets & Variables
-
-Go to the repo **Settings → Secrets and variables → Actions**.
-
-#### Secrets (Settings → Secrets → Actions → New repository secret)
-
-| Secret Name | Value | Used By |
+| Name | Value | Used By |
 |---|---|---|
-| `APP_PRIVATE_KEY` | Contents of the `.pem` file from step 6b | `sync-roadmap.yml` |
+| `APP_PRIVATE_KEY` | Contents of the `.pem` from step 5 | `sync-roadmap.yml` |
 
-#### Variables (Settings → Secrets and variables → Actions → Variables tab → New repository variable)
+#### Variables
 
-| Variable Name | Value | Used By |
+| Name | Value | Used By |
 |---|---|---|
-| `PROJECT_NUMBER` | The project number from step 5 (e.g., `5`) | `sync-roadmap.yml` |
-| `APP_ID` | The GitHub App ID from step 6d | `sync-roadmap.yml` |
-| `APP_INSTALLATION_ID` | The installation ID from step 6d | `sync-roadmap.yml` |
-| `AZURE_CLIENT_ID` | The App Registration client ID from step 4e | `deploy-functions.yml` |
-| `AZURE_TENANT_ID` | Your Entra tenant ID from step 4e | `deploy-functions.yml` |
-| `AZURE_SUBSCRIPTION_ID` | Your Azure subscription ID from step 4e | `deploy-functions.yml` |
+| `APP_ID` | GitHub App ID from step 5 | `sync-roadmap.yml` |
+| `PUBLIC_VOTE_API_URL` | `https://cse-interlink-votes.azurewebsites.net` | `deploy-site.yml`, `sync-roadmap.yml` |
+| `AZURE_CLIENT_ID` | Service principal `appId` | `deploy-functions.yml` |
+| `AZURE_TENANT_ID` | `az account show --query tenantId -o tsv` | `deploy-functions.yml` |
+| `AZURE_SUBSCRIPTION_ID` | `az account show --query id -o tsv` | `deploy-functions.yml` |
 
----
-
-### 8. First Deployment
-
-Once all the above is configured:
-
-```bash
-# Install site dependencies
-npm install
-
-# Verify it builds locally
-npm run build
-
-# Push to main — this triggers the deploy-site workflow
-git add -A
-git commit -m "Initial site deployment"
-git push origin main
-```
-
-Then trigger the other workflows manually for the first time:
-
-1. Go to **Actions → Sync Roadmap → Run workflow** (populates roadmap from your project board)
-2. Go to **Actions → Deploy Azure Functions → Run workflow** (deploys the vote API)
-
-After a few minutes, visit https://interlink.products.cse-icon.com and verify:
-
-- Product features page loads
-- Roadmap page shows items in kanban columns
-- Dark mode toggle works
-- Vote buttons open the modal
+> **Project numbers are no longer repo variables.** They live in each product's
+> `product.yaml`. A legacy `PROJECT_NUMBER` variable may still exist and is unused
+> — it is safe to delete. `APP_INSTALLATION_ID` is likewise unused:
+> `create-github-app-token` resolves the installation from `owner:`.
 
 ---
 
 ## Local Development
 
-### Local Install
-
 ```bash
 npm install
-cd api
-npm install
+cd api && npm install && cd ..
 ```
 
-### Site + Vote API
+### Site
 
 ```bash
-# Terminal 1 — Astro dev server
-npm run dev
-# → Site available at http://localhost:4321
-
-# Terminal 2 — Azure Function + Azurite + TypeScript watch (all in one)
-cd api
-npm run dev
-# → API available at http://localhost:7071
+npm run dev          # http://localhost:4321
 ```
 
-`npm run dev` in the `api/` directory starts three processes together:
-- **Azurite** — local Azure Table Storage emulator
-- **TypeScript watch** — recompiles on save
-- **Azure Functions runtime** — serves the API
+Drafted products build locally, so `npm run dev` is how you preview `/mcp` before
+publishing it.
 
-When running both locally, the vote button will show "Voting API not configured yet" unless you create a `.env` file in the project root:
+### Vote API
 
 ```bash
-# .env (project root, not committed)
+cd api
+npm run dev          # http://localhost:7071
+```
+
+That one command starts three processes: **Azurite** (local Table Storage
+emulator), **TypeScript watch**, and the **Functions runtime**.
+
+Point the site at it with a `.env` in the project root (git-ignored):
+
+```
 PUBLIC_VOTE_API_URL=http://localhost:7071
 ```
 
-### Running tests
+Without this the vote modal shows "Voting API not configured yet".
+
+### Tests and validation
 
 ```bash
-npm test           # Run all tests once
-npm run test:watch # Run tests in watch mode (re-runs on file changes)
+npm test             # Vitest — run in CI before every deploy
+npm run test:watch
+npm run build        # astro check + astro build; validates all content schemas
 ```
+
+### Roadmap sync
+
+```bash
+GH_TOKEN=<token with read:project> node scripts/sync-roadmap.mjs --dry-run
+```
+
+`--dry-run` fetches and reports without writing. A classic PAT needs the
+`read:project` scope; `gh auth token` does **not** include it by default.
 
 ---
 
 ## How to Push Updates
 
-### Updating Site Content or Features
+### Site content
 
-Any changes to files in `src/`, `public/`, `astro.config.mjs`, `tailwind.config.mjs`, or the root `package.json` will trigger an automatic deployment.
+Edit anything under `src/`, `public/`, `astro.config.mjs`, or `package.json`, push
+to `main`, and **Deploy Site** runs automatically (~1 minute). It runs `npm test`
+before building, so a failing test blocks the deploy.
 
-```bash
-# Make your changes, then:
-git add src/components/Hero.astro   # (or whatever you changed)
-git commit -m "Update hero tagline"
-git push origin main
-```
+Product copy lives in `src/content/products/` — see
+[docs/authoring-content.md](docs/authoring-content.md).
 
-The **Deploy Site** workflow runs automatically. Typical deploy time: ~1 minute. Monitor progress at **Actions → Deploy Site** in the repo.
+### Roadmap
 
-To update feature content (titles, descriptions), edit [src/pages/index.astro](src/pages/index.astro) — all feature data is defined inline in the `sections` array in the frontmatter.
+**Automatic (preferred).** Edit the GitHub Projects board: set `Public?` to
+`Yes` and fill in `Public Summary`, `Public Category`, and `Public Status`. The
+**Sync Roadmap** action runs weekly (Mondays 10:00 UTC) and, if anything changed,
+commits the new JSON and redeploys. To sync immediately:
+**Actions → Sync Roadmap → Run workflow**.
 
-### Updating the Roadmap
+**Manual.** Edit `src/data/roadmap/<slug>.json` directly. Useful for testing, but
+the next sync overwrites it.
 
-There are two ways roadmap items appear on the site:
+### Vote API
 
-#### Automatic (recommended)
+Changes under `api/` trigger **Deploy Azure Functions**.
 
-1. Go to your GitHub Projects board
-2. Add or edit an item
-3. Set `Public` = checked, fill in `Summary`, `Category`, and `Status`
-4. The **Sync Roadmap** action runs daily at 6:00 AM UTC and commits any changes
-5. That commit triggers the **Deploy Site** action automatically
+### Manual deployments
 
-To force an immediate sync: **Actions → Sync Roadmap → Run workflow**.
-
-#### Manual
-
-Edit [src/data/roadmap.json](src/data/roadmap.json) directly and push. Useful for tweaking vote counts or testing.
-
-### Updating the Vote API
-
-Changes to any files under `api/` trigger the **Deploy Azure Functions** workflow:
-
-```bash
-git add api/vote/index.ts
-git commit -m "Update vote API response message"
-git push origin main
-```
-
-### Manual Deployments
-
-All three workflows support `workflow_dispatch` — you can trigger any of them manually from the **Actions** tab without pushing code.
+All three workflows support `workflow_dispatch` — run any of them from the
+**Actions** tab without pushing.
 
 ---
 
 ## Voting System
 
-### How It Works
+### How it works
 
-1. User clicks **Vote** on a roadmap item
-2. A modal asks for their email address
-3. The static site sends `POST /api/vote` with `{ itemId, email }` to the Azure Function
-4. The function normalizes the email (lowercase, strips `+alias` tags) and checks for duplicate votes
-5. If new, the vote is recorded immediately and the count is incremented
-6. The UI updates the count on the card in real time
+1. A visitor clicks **Vote** on a roadmap card
+2. A modal collects their email and an optional use case
+3. The site sends `POST /api/vote` with `{ itemId, email, useCase, product }`
+4. The function normalises the email (lowercase, strips `+alias`) and checks for a
+   duplicate vote on that item
+5. If new, the vote is recorded immediately and the count incremented
+6. The card's count updates in place
 
-Emails are stored so the sales team can identify interested users. The `originalEmail` field preserves what the user typed; the normalized version is used as the dedup key.
+Emails are stored so the sales team can follow up. `originalEmail` preserves what
+was typed; the normalised form is the dedupe key.
 
-### Anti-Spam Measures
+Vote item IDs are GitHub Project **item node IDs** (`PVTI_…`), which are globally
+unique across boards. That is why one pair of tables serves every product without
+a product key. The `product` field is recorded for segmentation only.
+
+### Anti-spam measures
 
 | Measure | Details |
 |---|---|
-| **Plus-alias stripping** | `damon+fake@gmail.com` and `damon@gmail.com` are treated as the same voter |
-| **One vote per email per item** | Duplicate attempts return HTTP 409 |
-| **CORS restriction** | API only accepts requests from `interlink.products.cse-icon.com` |
-| **Email validation** | Basic format check before processing |
+| Plus-alias stripping | `a+test@x.com` and `a@x.com` count as the same voter |
+| One vote per email per item | Duplicates return HTTP 409 |
+| CORS restriction | Only the origin in `SITE_URL` is accepted |
+| Email validation | Format checked before processing |
 
-### Azure Table Schema
+### Azure Table schema
 
-**`votes` table** — one row per vote
+**`votes`** — one row per vote
 
 | Column | Type | Description |
 |---|---|---|
 | `partitionKey` | string | Roadmap item ID |
-| `rowKey` | string | Normalized email (dedup key) |
-| `originalEmail` | string | Email as the user entered it |
-| `timestamp` | string | ISO 8601 timestamp |
+| `rowKey` | string | Normalised email (dedupe key) |
+| `originalEmail` | string | Email as entered |
+| `useCase` | string | Optional free text from the modal |
+| `product` | string | Product slug the vote came from |
+| `timestamp` | string | ISO 8601 |
 
-**`votecounts` table** — denormalized counts for fast reads
+**`votecounts`** — denormalised counts for fast reads
 
 | Column | Type | Description |
 |---|---|---|
 | `partitionKey` | string | Always `"counts"` |
 | `rowKey` | string | Roadmap item ID |
-| `count` | number | Total confirmed votes |
+| `count` | number | Total votes |
 
-### API Endpoints
+### API endpoints
 
 | Method | Route | Description |
 |---|---|---|
-| `POST` | `/api/vote` | Submit a vote. Body: `{ "itemId": "1", "email": "user@co.com" }` |
-| `GET` | `/api/vote/{itemId}` | Get vote count for an item. Returns: `{ "itemId": "1", "count": 42 }` |
+| `POST` | `/api/vote` | Submit a vote. Body: `{ itemId, email, useCase?, product? }` |
+| `GET` | `/api/vote/{itemId}` | Vote count: `{ "itemId": "…", "count": 42 }` |
 | `OPTIONS` | `/api/vote` | CORS preflight |
+
+> `api/local.settings.json` contains a `SENDGRID_API_KEY` placeholder left over
+> from an email-confirmation flow that was specified but never built. No code
+> sends email; it can be removed.
 
 ---
 
 ## Roadmap Sync
 
-### GitHub Projects Field Requirements
+[scripts/sync-roadmap.mjs](scripts/sync-roadmap.mjs) reads every
+`src/content/products/*/product.yaml`, acts on those with `roadmap.enabled`, and
+queries the GitHub Projects v2 GraphQL API for each board.
 
-The sync script ([scripts/sync-roadmap.mjs](scripts/sync-roadmap.mjs)) queries the GitHub Projects v2 GraphQL API and expects these exact field names:
+### Behaviour
 
-| Field | Required | Purpose |
-|---|---|---|
-| `Public Status` | Yes | Maps to kanban columns |
-| `Public?` | Yes | Only items set to `Yes` are synced |
-| `Public Summary` | Yes | Public-facing description |
-| `Public Category` | Yes | Category badge on cards |
-| `Public Released In` | No | Version badge for released items |
+- Runs **weekly, Mondays 10:00 UTC** (`cron: '0 10 * * 1'`), or on manual dispatch
+- Writes `src/data/roadmap/<slug>.json` as `{ lastUpdated, items }`
+- Only items with `Public? = Yes` are included
+- Preserves existing vote counts by item ID
+- Warns about public items with a blank `Public Summary` (they render an empty
+  card) without failing the run
+- Commits and pushes only if the data changed, then rebuilds and redeploys Pages
+  in a second job — necessary because a `GITHUB_TOKEN` push does not trigger
+  `deploy-site.yml`
+- Attempts **every** product even if one board fails, then exits non-zero, so one
+  broken board cannot silently skip the others
 
-### Sync Behavior
+### Privacy
 
-- Runs daily at **6:00 AM UTC** via cron, or on manual trigger
-- Only items where `Public` = true are included
-- Preserves existing vote counts from the current `roadmap.json`
-- Writes `roadmap-meta.json` with a `lastUpdated` timestamp (displayed on the roadmap page)
-- Only commits + pushes if the data actually changed
-- The commit from sync automatically triggers the site deploy workflow
+The boards are private and Actions logs are readable by anyone with repo access,
+so the sync deliberately logs **only counts** and the titles of items already
+marked public. It never dumps the API response or the fields of non-public items.
+
+### Adding a roadmap to another product
+
+Set `roadmap.enabled: true` and `roadmap.projectNumber` in that product's
+`product.yaml`. Nothing else changes: the App token already has org-wide project
+read access, and the sync discovers the new board on its next run.
 
 ---
 
@@ -616,63 +581,100 @@ The sync script ([scripts/sync-roadmap.mjs](scripts/sync-roadmap.mjs)) queries t
 
 | Resource | SKU | Monthly Cost |
 |---|---|---|
-| Azure Function App | Flex Consumption | Free (first 100K executions/month included) |
-| Azure Storage Account | General Purpose v2, LRS | ~$0.01 |
+| Function App | Flex Consumption | Free (first 100K executions/month) |
+| Storage Account | General Purpose v2, LRS | ~$0.01 |
+| Application Insights | Pay-as-you-go, sampled | ~$0 at this volume |
 | **Total** | | **~$0.01/month** |
 
 ---
 
 ## Troubleshooting
 
+### Build fails with a content schema error
+
+The schemas are strict so bad content cannot reach production. The error names
+the file and field. Common cases are tabulated in
+[docs/authoring-content.md](docs/authoring-content.md#if-the-build-fails).
+
 ### Site deploy fails with "Pages not enabled"
 
-Go to **Settings → Pages → Source** and select **GitHub Actions**. The workflow needs the Pages environment to exist.
+**Settings → Pages → Source** must be **GitHub Actions**.
 
-### Sync roadmap action fails with "Project not found"
+### A product page 404s
 
-- Verify `PROJECT_NUMBER` variable matches the number in your project URL
-- Verify the GitHub App has **Projects: Read-only** under Organization permissions
-- Verify the App is installed on the `cse-icon` org (https://github.com/organizations/cse-icon/settings/installations)
-- Verify `APP_ID`, `APP_INSTALLATION_ID` variables and `APP_PRIVATE_KEY` secret are set correctly
-- If the App was recently created, it may take a few minutes for permissions to propagate
+- Check the folder name under `src/content/products/` — it is the URL, and URLs
+  are case-sensitive. `/Interlink` will not resolve; `/interlink` will.
+- Check `draft` is not `true` in that product's `product.yaml`.
+
+### A roadmap page 404s
+
+`roadmap.enabled` must be `true` in the product's `product.yaml`. Pages are only
+generated for products that opted in.
+
+### Sync fails with "Project not found"
+
+- Verify `roadmap.projectNumber` matches the board URL
+- Verify the GitHub App has **Projects: Read-only** under *Organization* permissions
+- Verify it is installed on the org:
+  https://github.com/organizations/cse-icon/settings/installations
+- Verify `APP_ID` and `APP_PRIVATE_KEY` are set
+- Newly granted permissions can take a few minutes to propagate
+
+### Sync fails with "has not been granted the required scopes"
+
+The token lacks `read:project`. In CI this means the App's permissions are wrong.
+Locally, `gh auth token` does not carry that scope — use a PAT with `read:project`
+or run `gh auth refresh -s read:project`.
 
 ### Votes return CORS errors
 
-The Azure Function's CORS origin is set via the `SITE_URL` environment variable. Verify it's set to `https://interlink.products.cse-icon.com` in the Function App configuration:
+The Function App's `SITE_URL` must exactly match the site origin:
 
 ```bash
 az functionapp config appsettings list \
-  --name interlink-votes \
-  --resource-group rg-interlink-site \
-  --query "[?name=='SITE_URL']"
+  --name cse-interlink-votes \
+  --resource-group InterLink \
+  --query "[?name=='SITE_URL']" -o table
+```
+
+It must be `https://products.cse-icon.com`. Set it with:
+
+```bash
+az functionapp config appsettings set \
+  --name cse-interlink-votes \
+  --resource-group InterLink \
+  --settings "SITE_URL=https://products.cse-icon.com"
 ```
 
 ### Vote button shows "Voting API not configured yet"
 
-The site needs the `PUBLIC_VOTE_API_URL` environment variable. For production, you can hardcode the URL or set it in your build environment. Create a `.env` file:
-
-```
-PUBLIC_VOTE_API_URL=https://interlink-votes.azurewebsites.net
-```
-
-Then rebuild and deploy.
+`PUBLIC_VOTE_API_URL` was not set at build time. It is inlined by Astro during
+the build, so it must be present then — set the repo **variable** (not a secret),
+or a local `.env` for development. It must be
+`https://cse-interlink-votes.azurewebsites.net`.
 
 ### Azure Function deploy fails with 401 Unauthorized
 
-This means the OIDC authentication between GitHub Actions and Azure isn't working:
+OIDC between Actions and Azure is not working:
 
-- Verify `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID` variables are set correctly in the repo
-- Verify the service principal has **Website Contributor** role on the Function App:
-  ```bash
-  az role assignment list --assignee <client-id> --scope /subscriptions/<sub-id>/resourceGroups/InterLink/providers/Microsoft.Web/sites/cse-interlink-votes
-  ```
-- Verify the federated credential subject matches your repo and branch:
-  ```bash
-  az ad app federated-credential list --id <client-id>
-  ```
-  The `subject` must be `repo:cse-icon/InterLink-site:ref:refs/heads/main`
-- If deploying from a workflow_dispatch on a non-main branch, you need an additional federated credential for that branch
+```bash
+az role assignment list --assignee <client-id> \
+  --scope /subscriptions/<sub-id>/resourceGroups/InterLink/providers/Microsoft.Web/sites/cse-interlink-votes
+
+az ad app federated-credential list --id <client-id>
+```
+
+The credential `subject` must be
+`repo:cse-icon/InterLink-site:ref:refs/heads/main`. Deploying from another branch
+needs its own credential.
+
+> The repo is still named `InterLink-site` although it now serves all products.
+> Renaming it would break this federated credential subject and the git remote, so
+> it has been left alone deliberately. If you do rename it, update the credential
+> in the same change.
 
 ### Dark mode flickers on page load
 
-This shouldn't happen — the theme script runs inline in `<head>` before paint. If it does, check that the script in `BaseLayout.astro` hasn't been moved to a deferred/async position.
+The theme script runs inline in `<head>` before paint. If it flickers, check it
+has not been moved to a deferred or async position in
+[src/layouts/BaseLayout.astro](src/layouts/BaseLayout.astro).

@@ -6,7 +6,7 @@ const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
 const votesTable = TableClient.fromConnectionString(connectionString, 'votes');
 const countsTable = TableClient.fromConnectionString(connectionString, 'votecounts');
 
-const CORS_ORIGIN = process.env.SITE_URL || 'https://interlink.products.cse-icon.com';
+const CORS_ORIGIN = process.env.SITE_URL || 'https://products.cse-icon.com';
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': CORS_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -22,14 +22,19 @@ async function ensureTables() {
 async function postVote(req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   await ensureTables();
 
-  let body: { itemId?: string; email?: string; useCase?: string };
+  let body: { itemId?: string; email?: string; useCase?: string; product?: string };
   try {
-    body = (await req.json()) as { itemId?: string; email?: string; useCase?: string };
+    body = (await req.json()) as {
+      itemId?: string;
+      email?: string;
+      useCase?: string;
+      product?: string;
+    };
   } catch {
     return { status: 400, headers: CORS_HEADERS, jsonBody: { error: 'Invalid JSON body' } };
   }
 
-  const { itemId, email, useCase } = body;
+  const { itemId, email, useCase, product } = body;
 
   if (!itemId || !email || !isValidEmail(email)) {
     return { status: 400, headers: CORS_HEADERS, jsonBody: { error: 'Valid itemId and email are required' } };
@@ -56,6 +61,9 @@ async function postVote(req: HttpRequest, context: InvocationContext): Promise<H
     rowKey: normalized,
     originalEmail: email.trim().toLowerCase(),
     useCase: useCase || '',
+    // Which product page the vote came from. Item IDs are globally unique
+    // GitHub Project node IDs, so this is for segmentation, not for keying.
+    product: product || '',
     timestamp: new Date().toISOString(),
   });
 

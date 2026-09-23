@@ -1,146 +1,246 @@
 /**
- * Sync roadmap data from a GitHub Projects board.
+ * Sync roadmap data from private GitHub Projects v2 boards — one per product.
+ *
+ * Which products have a roadmap, and which board each points at, is declared in
+ * src/content/products/<slug>/product.yaml under `roadmap:`. Adding a product is
+ * therefore a content change with no CI variables to update.
  *
  * Required environment variables:
- *   GH_TOKEN        — PAT or GitHub App token with read:project scope
- *   ORG             — GitHub organisation (e.g. "cse-icon")
- *   PROJECT_NUMBER  — Numeric project ID on the org
+ *   GH_TOKEN  — GitHub App token (or PAT) with org-level read:project
  *
- * Outputs: src/data/roadmap.json, src/data/roadmap-meta.json
+ * Writes src/data/roadmap/<slug>.json as { lastUpdated, items }.
+ *
+ * Usage:
+ *   node scripts/sync-roadmap.mjs            # fetch and write
+ *   node scripts/sync-roadmap.mjs --dry-run  # fetch and report, write nothing
+ *
+ * Note: this deliberately does not log board contents. The boards are private
+ * and Actions logs are broadly readable, so only counts and the titles of items
+ * already marked public are ever printed.
  */
 
-import { writeFileSync, readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
+import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { filterPublicItems, transformItem, preserveVoteCounts } from './roadmap-helpers.mjs';
+import { parse as parseYaml } from 'yaml';
+import {
+  filterPublicItems,
+  transformItem,
+  preserveVoteCounts,
+  itemsMissingSummary,
+} from './roadmap-helpers.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUTPUT_PATH = resolve(__dirname, '..', 'src', 'data', 'roadmap.json');
-const META_PATH = resolve(__dirname, '..', 'src', 'data', 'roadmap-meta.json');
+const REPO_ROOT = resolve(__dirname, '..');
+const PRODUCTS_DIR = join(REPO_ROOT, 'src', 'content', 'products');
+const OUTPUT_DIR = join(REPO_ROOT, 'src', 'data', 'roadmap');
 
-const { GH_TOKEN, ORG, PROJECT_NUMBER } = process.env;
+const DRY_RUN = process.argv.includes('--dry-run');
+const { GH_TOKEN } = process.env;
 
-if (!GH_TOKEN || !ORG || !PROJECT_NUMBER) {
-  console.error('Missing required env vars: GH_TOKEN, ORG, PROJECT_NUMBER');
-  process.exit(1);
-}
-
-/**
- * Query the GitHub Projects v2 GraphQL API.
- * Paginates through all items automatically.
- */
-async function fetchProjectItems() {
-  const items = [];
-  let cursor = null;
-  let hasNextPage = true;
-
-  while (hasNextPage) {
-    const afterClause = cursor ? `, after: "${cursor}"` : '';
-    const query = `
-      query {
-        organization(login: "${ORG}") {
-          projectV2(number: ${PROJECT_NUMBER}) {
-            items(first: 100${afterClause}) {
-              pageInfo { hasNextPage endCursor }
+const GRAPHQL_QUERY = `
+  query($org: String!, $number: Int!, $after: String) {
+    organization(login: $org) {
+      projectV2(number: $number) {
+        items(first: 100, after: $after) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id
+            content {
+              ... on Issue { title }
+              ... on DraftIssue { title }
+              ... on PullRequest { title }
+            }
+            fieldValues(first: 50) {
               nodes {
-                id
-                content {
-                  ... on Issue { title }
-                  ... on DraftIssue { title }
+                ... on ProjectV2ItemFieldSingleSelectValue {
+                  name
+                  field { ... on ProjectV2SingleSelectField { name } }
                 }
-                fieldValues(first: 20) {
-                  nodes {
-                    ... on ProjectV2ItemFieldSingleSelectValue {
-                      name
-                      field { ... on ProjectV2SingleSelectField { name } }
-                    }
-                    ... on ProjectV2ItemFieldTextValue {
-                      text
-                      field { ... on ProjectV2FieldCommon { name } }
-                    }
-                  }
+                ... on ProjectV2ItemFieldTextValue {
+                  text
+                  field { ... on ProjectV2FieldCommon { name } }
                 }
               }
             }
           }
         }
       }
-    `;
+    }
+  }
+`;
 
+/**
+ * Read every product.yaml and return those that opted into a roadmap.
+ * @returns {{ slug: string, org: string, projectNumber: number }[]}
+ */
+function loadRoadmapProducts() {
+  if (!existsSync(PRODUCTS_DIR)) {
+    throw new Error(`Products directory not found: ${PRODUCTS_DIR}`);
+  }
+
+  const slugs = readdirSync(PRODUCTS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+
+  const configured = [];
+
+  for (const slug of slugs) {
+    const configPath = join(PRODUCTS_DIR, slug, 'product.yaml');
+    if (!existsSync(configPath)) continue;
+
+    const product = parseYaml(readFileSync(configPath, 'utf-8'));
+    const roadmap = product?.roadmap;
+    if (!roadmap?.enabled) continue;
+
+    if (!roadmap.projectNumber) {
+      throw new Error(
+        `${slug}: roadmap.enabled is true but roadmap.projectNumber is missing in ${configPath}`,
+      );
+    }
+
+    configured.push({
+      slug,
+      org: roadmap.org ?? 'cse-icon',
+      projectNumber: Number(roadmap.projectNumber),
+    });
+  }
+
+  return configured;
+}
+
+/**
+ * Fetch every item on one project board, following pagination.
+ * @returns {Promise<object[]>} Raw project item nodes
+ */
+async function fetchProjectItems({ org, projectNumber }) {
+  const items = [];
+  let after = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
     const res = await fetch('https://api.github.com/graphql', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${GH_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({
+        query: GRAPHQL_QUERY,
+        variables: { org, number: projectNumber, after },
+      }),
     });
 
     if (!res.ok) {
-      console.error(`GitHub API error: ${res.status} ${res.statusText}`);
-      const body = await res.text();
-      console.error(body);
-      process.exit(1);
+      throw new Error(`GitHub API error ${res.status} ${res.statusText}`);
     }
 
     const json = await res.json();
-    console.log('API response:', JSON.stringify(json, null, 2));
 
     if (json.errors) {
-      console.error('GraphQL errors:', JSON.stringify(json.errors, null, 2));
-      process.exit(1);
+      // GitHub reports one error per offending field, so collapse duplicates.
+      const messages = [...new Set(json.errors.map((e) => e.message))].join(' ');
+      throw new Error(`GraphQL error: ${messages}`);
     }
 
-    const project = json.data.organization.projectV2;
+    const project = json.data?.organization?.projectV2;
     if (!project) {
-      console.error(`Project #${PROJECT_NUMBER} not found in org ${ORG}`);
-      process.exit(1);
+      throw new Error(`Project #${projectNumber} not found in org ${org}`);
     }
 
-    const page = project.items;
-    items.push(...page.nodes);
-    hasNextPage = page.pageInfo.hasNextPage;
-    cursor = page.pageInfo.endCursor;
+    items.push(...project.items.nodes);
+    hasNextPage = project.items.pageInfo.hasNextPage;
+    after = project.items.pageInfo.endCursor;
   }
 
   return items;
 }
 
-async function main() {
-  console.log(`Fetching project #${PROJECT_NUMBER} from ${ORG}...`);
-  const rawItems = await fetchProjectItems();
-  console.log(`Found ${rawItems.length} total items`);
-
-  // Debug: log all field names and values for each item
-  for (const item of rawItems) {
-    const title = item.content?.title || 'Untitled';
-    const fields = item.fieldValues.nodes
-      .filter((fv) => fv.field)
-      .map((fv) => `${fv.field.name}=${fv.name || fv.text || '(empty)'}`)
-      .join(', ');
-    console.log(`  Item "${title}": ${fields || '(no fields)'}`);
-  }
-
+/** Sync one product. Returns a short result line for the summary. */
+async function syncProduct({ slug, org, projectNumber }) {
+  const rawItems = await fetchProjectItems({ org, projectNumber });
   const publicItems = filterPublicItems(rawItems);
-  console.log(`${publicItems.length} items are marked Public`);
+  let items = publicItems.map(transformItem);
 
-  let roadmap = publicItems.map(transformItem);
+  const outputPath = join(OUTPUT_DIR, `${slug}.json`);
 
-  // Preserve existing vote counts from the current file
+  // Carry forward vote counts. Azure Table Storage is the source of truth and
+  // the board is re-read client-side, so this only keeps the static fallback warm.
   try {
-    const existing = JSON.parse(readFileSync(OUTPUT_PATH, 'utf-8'));
-    roadmap = preserveVoteCounts(roadmap, existing);
+    const existing = JSON.parse(readFileSync(outputPath, 'utf-8'));
+    items = preserveVoteCounts(items, existing.items ?? []);
   } catch {
-    // No existing file — that's fine
+    // No existing file, or it predates the { lastUpdated, items } shape.
   }
 
-  writeFileSync(OUTPUT_PATH, JSON.stringify(roadmap, null, 2) + '\n');
+  const missing = itemsMissingSummary(items);
+  if (missing.length > 0) {
+    console.warn(
+      `  ! ${missing.length} public item(s) have no Public Summary and will render an empty card:`,
+    );
+    for (const title of missing) console.warn(`      - ${title}`);
+  }
 
-  // Write metadata with last-updated timestamp
-  const meta = { lastUpdated: new Date().toISOString() };
-  writeFileSync(META_PATH, JSON.stringify(meta, null, 2) + '\n');
+  if (DRY_RUN) {
+    return `${slug}: ${items.length} public of ${rawItems.length} board items (dry run, nothing written)`;
+  }
 
-  console.log(`Wrote ${roadmap.length} items to ${OUTPUT_PATH}`);
+  mkdirSync(OUTPUT_DIR, { recursive: true });
+  writeFileSync(
+    outputPath,
+    `${JSON.stringify({ lastUpdated: new Date().toISOString(), items }, null, 2)}\n`,
+  );
+
+  return `${slug}: ${items.length} public of ${rawItems.length} board items -> ${outputPath}`;
 }
 
-main();
+async function main() {
+  if (!GH_TOKEN) {
+    console.error('Missing required env var: GH_TOKEN');
+    process.exitCode = 1;
+    return;
+  }
+
+  const products = loadRoadmapProducts();
+
+  if (products.length === 0) {
+    console.log('No products have roadmap.enabled — nothing to sync.');
+    return;
+  }
+
+  console.log(
+    `Syncing ${products.length} roadmap(s): ${products.map((p) => p.slug).join(', ')}${
+      DRY_RUN ? ' (dry run)' : ''
+    }`,
+  );
+
+  const summaries = [];
+  const failures = [];
+
+  // Every product is attempted so one bad board cannot silently skip the rest.
+  for (const product of products) {
+    console.log(`\n${product.slug} <- ${product.org}/projects/${product.projectNumber}`);
+    try {
+      summaries.push(await syncProduct(product));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`  x failed: ${message}`);
+      failures.push(`${product.slug}: ${message}`);
+    }
+  }
+
+  console.log('\nSummary');
+  for (const line of summaries) console.log(`  ok  ${line}`);
+  for (const line of failures) console.log(`  err ${line}`);
+
+  if (failures.length > 0) {
+    console.error(`\n${failures.length} of ${products.length} roadmap(s) failed to sync.`);
+    process.exitCode = 1;
+  }
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.stack : error);
+  process.exitCode = 1;
+});

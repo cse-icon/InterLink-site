@@ -107,3 +107,17 @@ export function validateRoadmapItem(item) {
 
   return { valid: errors.length === 0, errors };
 }
+
+/**
+ * Titles of items that have no public summary.
+ *
+ * The board's `Public Summary` field is what the site renders, so a blank one
+ * ships an empty card. Reported as a warning by the sync rather than failing the
+ * build, since it is an editorial gap, not a data error.
+ *
+ * @param {object[]} items - Transformed roadmap entries
+ * @returns {string[]} Titles of entries with an empty summary
+ */
+export function itemsMissingSummary(items) {
+  return items.filter((item) => !item.summary?.trim()).map((item) => item.title);
+}

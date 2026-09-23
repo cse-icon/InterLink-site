@@ -1,25 +1,13 @@
 ---
 import RoadmapItem from './RoadmapItem.astro';
-import roadmapData from '../data/roadmap.json';
+import { ROADMAP_COLUMNS, categoryBadge } from '../lib/roadmap';
+import type { RoadmapItem as RoadmapEntry } from '../lib/roadmap';
 
-interface RoadmapEntry {
-  id: string;
-  title: string;
-  summary: string;
-  category: string;
-  status: string;
-  releasedIn: string | null;
-  votes: number;
+interface Props {
+  items: RoadmapEntry[];
 }
 
-const items = roadmapData as RoadmapEntry[];
-
-const columns = [
-  { key: 'Backlog', label: 'Backlog', color: 'bg-slate-400' },
-  { key: 'Investigating', label: 'Investigating', color: 'bg-yellow-400' },
-  { key: 'In Development', label: 'In Development', color: 'bg-blue-400' },
-  { key: 'Released', label: 'Recently Released', color: 'bg-green-400' },
-];
+const { items } = Astro.props;
 
 const categories = [...new Set(items.map((i) => i.category))].sort();
 ---
@@ -34,29 +22,19 @@ const categories = [...new Set(items.map((i) => i.category))].sort();
     >
       All
     </button>
-    {categories.map((cat) => {
-      const badgeClass = {
-        PI: 'badge-pi',
-        'OPC UA': 'badge-opcua',
-        Platform: 'badge-platform',
-        Configuration: 'badge-configuration',
-        Security: 'badge-security',
-        Federation: 'badge-federation',
-      }[cat] || 'badge-platform';
-      return (
-        <button
-          class={`category-filter badge ${badgeClass} rounded-lg px-3 py-1.5 text-sm font-medium opacity-60 transition-all hover:opacity-100`}
-          data-category={cat}
-        >
-          {cat}
-        </button>
-      );
-    })}
+    {categories.map((cat) => (
+      <button
+        class={`category-filter badge ${categoryBadge(cat)} rounded-lg px-3 py-1.5 text-sm font-medium opacity-60 transition-all hover:opacity-100`}
+        data-category={cat}
+      >
+        {cat}
+      </button>
+    ))}
   </div>
 
   <!-- Kanban board -->
   <div class="grid gap-6 lg:grid-cols-4">
-    {columns.map((col) => {
+    {ROADMAP_COLUMNS.map((col) => {
       const colItems = items.filter((i) => i.status === col.key);
       return (
         <div class="flex flex-col">
@@ -67,15 +45,7 @@ const categories = [...new Set(items.map((i) => i.category))].sort();
           </div>
           <div class="flex flex-col gap-3 roadmap-column" data-column-status={col.key}>
             {colItems.map((item) => (
-              <RoadmapItem
-                id={item.id}
-                title={item.title}
-                summary={item.summary}
-                category={item.category}
-                status={item.status}
-                releasedIn={item.releasedIn}
-                votes={item.votes}
-              />
+              <RoadmapItem {...item} />
             ))}
             {colItems.length === 0 && (
               <p class="rounded-lg border border-dashed border-[var(--color-border)] p-6 text-center text-sm text-[var(--color-text-muted)]">
