@@ -117,8 +117,7 @@ products-site/
 │   ├── package.json
 │   └── tsconfig.json
 ├── docs/
-│   ├── authoring-content.md     # How to edit copy and add products (non-devs)
-│   └── migration/               # One-off infrastructure migration; deleted once complete
+│   └── authoring-content.md     # How to edit copy and add products (non-devs)
 ├── public/
 │   ├── robots.txt
 │   ├── favicon.png
@@ -329,9 +328,19 @@ az role assignment create \
 az ad app federated-credential create --id $APP_ID --parameters '{
   "name": "github_deploy_products-site",
   "issuer": "https://token.actions.githubusercontent.com",
-  "subject": "repo:cse-icon/products-site:ref:refs/heads/main",
+  "subject": "repo:cse-icon@22769604/products-site@1190012306:ref:refs/heads/main",
   "audiences": ["api://AzureADTokenExchange"]
 }'
+```
+
+GitHub presents this repo's OIDC subject in the **immutable-ID** form,
+`repo:<org>@<org-id>/<repo>@<repo-id>:ref:…`, so the credential must match it
+exactly; the plain `repo:cse-icon/products-site:…` form does not. The IDs pin the
+credential to this exact repo, so a renamed or recreated repo can never inherit
+it. To see the IDs:
+
+```bash
+gh api repos/cse-icon/products-site --jq '"org \(.owner.id), repo \(.id)"'
 ```
 
 The role is scoped to the Function App, not the resource group. Every repo that
@@ -710,9 +719,10 @@ az role assignment list --assignee <client-id> \
 az ad app federated-credential list --id <client-id>
 ```
 
-The credential `subject` must be
-`repo:cse-icon/products-site:ref:refs/heads/main`. Deploying from another branch,
-or from the repo under a different name, needs its own credential.
+The credential `subject` must match the one GitHub presents, which the failed
+**Login to Azure** step prints as `subject claim - …`. For `main` it is
+`repo:cse-icon@22769604/products-site@1190012306:ref:refs/heads/main`. Deploying
+from another branch needs its own credential.
 
 ### Dark mode flickers on page load
 
