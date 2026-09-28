@@ -100,13 +100,20 @@ const footerLinkClass =
     <!-- Main nav -->
     <nav class="sticky top-0 z-50 bg-white shadow-[0_1px_0_rgba(0,0,0,0.1)] dark:bg-slate-900 dark:shadow-[0_1px_0_rgba(255,255,255,0.05)]">
       <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-        <a href={product ? `/${product.id}` : '/'} class="flex min-w-0 items-center gap-3">
-          <img src="/cse-icon-logo.png" alt="CSE ICON" class="h-8 shrink-0 dark:brightness-0 dark:invert" />
+        <!-- The logo always leads to the product index, so every page has a way
+             back even when there is only one product and no switcher. -->
+        <div class="flex min-w-0 items-center gap-3">
+          <a href="/" aria-label="All CSE ICON products" class="shrink-0">
+            <img src="/cse-icon-logo.png" alt="CSE ICON" class="h-8 dark:brightness-0 dark:invert" />
+          </a>
           <span class="text-[var(--color-text-muted)]">|</span>
-          <span class="truncate text-lg font-bold tracking-tight text-[var(--color-text)]">
+          <a
+            href={product ? `/${product.id}` : '/'}
+            class="truncate text-lg font-bold tracking-tight text-[var(--color-text)] transition-colors hover:text-brand-600"
+          >
             {product ? product.data.name : 'Products'}
-          </span>
-        </a>
+          </a>
+        </div>
 
         <div class="flex items-center gap-3 sm:gap-6">
           {links.map((link) => (
