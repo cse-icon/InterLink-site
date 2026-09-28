@@ -1,5 +1,5 @@
 {
-  "name": "interlink-vote-api",
+  "name": "products-vote-api",
   "version": "1.0.0",
   "private": true,
   "main": "dist/vote/index.js",
