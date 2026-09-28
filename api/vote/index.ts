@@ -9,6 +9,10 @@ const countsTable = TableClient.fromConnectionString(connectionString, 'votecoun
 // Comma-separated list of site origins allowed to call the API. More than one
 // lets the site be served from a second host (a staging domain, or localhost)
 // without redeploying. The first entry is echoed to origins not on the list.
+//
+// These headers only cover actual requests. In Azure the Functions host answers
+// browser preflights itself, before this code runs, from the Function App's
+// platform CORS setting (`az functionapp cors`), which must list the same origins.
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://products.cse-icon.com')
   .split(',')
   .map((origin) => origin.trim())
