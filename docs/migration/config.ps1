@@ -85,5 +85,8 @@ function Get-CredentialSubject([string] $repoName) {
 }
 
 function Get-FunctionAppHost {
-  az functionapp show -g $ResourceGroup -n $FunctionApp --query defaultHostName -o tsv
+  # `az functionapp show` puts defaultHostName at the top level in some CLI
+  # versions and under `properties` in others; the generic resource is stable.
+  az resource show -g $ResourceGroup -n $FunctionApp --resource-type Microsoft.Web/sites `
+    --query properties.defaultHostName -o tsv
 }

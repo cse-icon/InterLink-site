@@ -59,8 +59,10 @@ Write-Step 'Website Contributor on the Function App only'
 # other repos' workflows hold the same rights, and this keeps them to deploying
 # the Function App. They cannot touch the storage account.
 $functionAppId = az functionapp show -g $ResourceGroup -n $FunctionApp --query id -o tsv
-$assigned = az role assignment list --assignee $spId --scope $functionAppId --role 'Website Contributor' --query 'length(@)' -o tsv
-if ([int]$assigned -gt 0) {
+# Count in PowerShell: a JMESPath like length(@) has no spaces, so it reaches
+# az.cmd unquoted and cmd.exe chokes on the parentheses.
+$assigned = @(az role assignment list --assignee $spId --scope $functionAppId --role 'Website Contributor' --query '[].id' -o tsv)
+if ($assigned.Count -gt 0 -and $assigned[0]) {
   Write-Ok 'already assigned'
 } else {
   az role assignment create --assignee-object-id $spId --assignee-principal-type ServicePrincipal `
