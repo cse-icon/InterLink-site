@@ -10,30 +10,28 @@ $Org               = 'cse-icon'                  # GitHub organisation
 $NewRepoName       = 'products-site'             # GitHub repo name after the final rename
 $SiteDomain        = 'products.cse-icon.com'     # Public site host
 $Location          = 'southcentralus'            # Azure region for every new resource
-$ResourceGroup     = 'cse-products'              # New Azure resource group
+$ResourceGroup     = 'Products'                  # New Azure resource group
 $StorageAccount    = 'cseproducts'               # 3-24 lowercase letters/digits, globally unique
 $FunctionApp       = 'cse-products-votes'        # Globally unique; becomes <name>.azurewebsites.net
 $NodeVersion       = '24'                        # Functions runtime Node version
-$DeployAppName     = 'CSE Products GitHub Deploy' # Entra app registration used by GitHub Actions OIDC
 $RoadmapAppName    = 'CSE Products Roadmap Sync' # GitHub App display name (renamed by hand, step 6b)
-$SubscriptionId    = ''                          # Blank = the subscription `az account show` reports
+$SubscriptionId    = ''  # Blank = the subscription `az account show` reports
 
-# DNS. If cse-icon.com is hosted in Azure DNS, set its resource group and the
-# DNS scripts make the changes for you. Leave it blank to make them by hand in
-# your DNS provider; the scripts then print exactly what to enter.
-$DnsZone              = 'cse-icon.com'
-$DnsZoneResourceGroup = ''
-$PagesTarget          = 'cse-icon.github.io'     # CNAME target for GitHub Pages
+# Existing Entra app registration the org's repos share for GitHub -> Azure OIDC
+# deploys. It is kept; the migration only changes this repo's pieces on it: a
+# role assignment on the new Function App, and one federated credential per
+# repo name.
+$DeployAppName     = 'GitHub Deploy'
+
+# DNS is at GoDaddy and is changed by hand; the scripts print what to enter.
+$DnsZone           = 'cse-icon.com'
+$PagesTarget       = 'cse-icon.github.io'        # CNAME target for GitHub Pages
 
 # ─── Legacy: what exists today and is removed by the migration ────────────────
 
 $OldRepoName       = 'InterLink-site'
 $OldDomain         = 'interlink.products.cse-icon.com'
 $OldResourceGroup  = 'InterLink'                 # Deleted whole, with everything in it
-# The current deploy app registration is SHARED with other repos (it also holds
-# a federated credential for cse-icon/Canary-gRPC-documentation), so step 6 only
-# removes this repo's credential from it and never deletes the app.
-$OldDeployAppName  = 'GitHub Deploy'
 
 # ─── Helpers. No need to edit below this line. ────────────────────────────────
 
@@ -77,8 +75,13 @@ function Use-Subscription {
 # Values derived from Azure, so each script works from config alone with no
 # state carried between runs.
 function Get-DeployAppId {
-  param([string] $displayName = $DeployAppName)
-  az ad app list --display-name $displayName --query '[0].appId' -o tsv
+  $appId = az ad app list --display-name $DeployAppName --query '[0].appId' -o tsv
+  if (-not $appId) { throw "No Entra app registration named '$DeployAppName'. Check `$DeployAppName in config.ps1." }
+  $appId
+}
+
+function Get-CredentialSubject([string] $repoName) {
+  "repo:${Org}/${repoName}:ref:refs/heads/main"
 }
 
 function Get-FunctionAppHost {

@@ -247,11 +247,11 @@ dig products.cse-icon.com +short
 ```
 
 GitHub provisions the TLS certificate once DNS propagates (5–30 minutes).
-`cse-icon.com` DNS is hosted at Media Temple, not in Azure.
+`cse-icon.com` DNS is hosted at GoDaddy, not in Azure.
 
 ### 3. Azure Resources
 
-All in resource group **`cse-products`** (South Central US):
+All in resource group **`Products`** (South Central US):
 
 | Resource | Name | Purpose |
 |---|---|---|
@@ -267,11 +267,11 @@ the repo variable `PUBLIC_VOTE_API_URL` points at.
 
 ```bash
 az login
-az group create --name cse-products --location southcentralus
+az group create --name Products --location southcentralus
 
 az storage account create \
   --name cseproducts \
-  --resource-group cse-products \
+  --resource-group Products \
   --location southcentralus \
   --sku Standard_LRS \
   --kind StorageV2 \
@@ -282,7 +282,7 @@ az storage account create \
 # Also creates an Application Insights resource of the same name.
 az functionapp create \
   --name cse-products-votes \
-  --resource-group cse-products \
+  --resource-group Products \
   --storage-account cseproducts \
   --flexconsumption-location southcentralus \
   --runtime node \
@@ -290,10 +290,10 @@ az functionapp create \
 
 az functionapp config appsettings set \
   --name cse-products-votes \
-  --resource-group cse-products \
+  --resource-group Products \
   --settings \
     "AZURE_STORAGE_CONNECTION_STRING=$(az storage account show-connection-string \
-        --name cseproducts --resource-group cse-products --query connectionString -o tsv)" \
+        --name cseproducts --resource-group Products --query connectionString -o tsv)" \
     "ALLOWED_ORIGINS=https://products.cse-icon.com"
 ```
 
@@ -303,30 +303,29 @@ origins allowed to call the API, e.g.
 refused.
 
 **Deploy identity for GitHub Actions.** Flex Consumption does not support
-publish-profile auth, so deployment uses a service principal with an OIDC
-federated credential — no stored secrets. The app registration is dedicated to
-this repo; do not share it with other repos, or their workflows can deploy here.
+publish-profile auth, so deployment uses OIDC — no stored secrets. The identity
+is the org's shared **`GitHub Deploy`** Entra app registration, which other
+repos also deploy with. This repo adds two things to it:
 
 ```bash
-az ad app create --display-name "CSE Products GitHub Deploy"   # note the appId
-az ad sp create --id <appId>
+APP_ID=$(az ad app list --display-name "GitHub Deploy" --query "[0].appId" -o tsv)
 
 az role assignment create \
-  --assignee <appId> \
+  --assignee $APP_ID \
   --role "Website Contributor" \
-  --scope $(az functionapp show --name cse-products-votes --resource-group cse-products --query id -o tsv)
+  --scope $(az functionapp show --name cse-products-votes --resource-group Products --query id -o tsv)
 
-az ad app federated-credential create --id <appId> --parameters '{
-  "name": "github-main-products-site",
+az ad app federated-credential create --id $APP_ID --parameters '{
+  "name": "github_deploy_products-site",
   "issuer": "https://token.actions.githubusercontent.com",
   "subject": "repo:cse-icon/products-site:ref:refs/heads/main",
   "audiences": ["api://AzureADTokenExchange"]
 }'
 ```
 
-`Website Contributor` on the Function App alone is deliberately narrow: it can
-deploy to and read the Function App, but cannot touch the storage account or any
-other resource.
+The role is scoped to the Function App, not the resource group. Every repo that
+deploys with the shared app gets it, so this keeps them to deploying the
+Function App. They cannot touch the storage account or any other resource.
 
 The federated credential is scoped to `main` in this repo. Deploying from
 another branch needs an additional credential for that branch, and renaming the
@@ -395,7 +394,7 @@ does not break when someone leaves. One app covers **every** product's board.
 | `APP_ID` | GitHub App ID from step 5 | `sync-roadmap.yml` |
 | `PUBLIC_VOTE_API_URL` | `https://cse-products-votes.azurewebsites.net` | `deploy-site.yml`, `sync-roadmap.yml` |
 | `AZURE_FUNCTIONAPP_NAME` | `cse-products-votes` | `deploy-functions.yml` |
-| `AZURE_CLIENT_ID` | Deploy app registration `appId` | `deploy-functions.yml` |
+| `AZURE_CLIENT_ID` | `GitHub Deploy` app registration `appId` | `deploy-functions.yml` |
 | `AZURE_TENANT_ID` | `az account show --query tenantId -o tsv` | `deploy-functions.yml` |
 | `AZURE_SUBSCRIPTION_ID` | `az account show --query id -o tsv` | `deploy-functions.yml` |
 
@@ -660,7 +659,7 @@ scheme, host, no trailing slash:
 ```bash
 az functionapp config appsettings list \
   --name cse-products-votes \
-  --resource-group cse-products \
+  --resource-group Products \
   --query "[?name=='ALLOWED_ORIGINS']" -o table
 ```
 
@@ -669,7 +668,7 @@ Set it with:
 ```bash
 az functionapp config appsettings set \
   --name cse-products-votes \
-  --resource-group cse-products \
+  --resource-group Products \
   --settings "ALLOWED_ORIGINS=https://products.cse-icon.com"
 ```
 
@@ -686,7 +685,7 @@ OIDC between Actions and Azure is not working:
 
 ```bash
 az role assignment list --assignee <client-id> \
-  --scope $(az functionapp show --name cse-products-votes --resource-group cse-products --query id -o tsv)
+  --scope $(az functionapp show --name cse-products-votes --resource-group Products --query id -o tsv)
 
 az ad app federated-credential list --id <client-id>
 ```

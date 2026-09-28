@@ -2,9 +2,10 @@
 #
 # GitHub redirects the old repo URL (web and git) to the new one, keeps the Pages
 # custom domain, variables, secrets and environments, and starts putting the new
-# name in the OIDC token subject. Step 2 already created a federated credential
-# for that subject, so deploys keep working. This script then removes the
-# credential for the old name and proves a deploy still authenticates.
+# name in the OIDC token subject. Step 2 already added a federated credential
+# for that subject to the shared deploy app, so deploys keep working. This script
+# proves a deploy still authenticates, then removes the credential for the old
+# name. The app and its credentials for other repos are untouched.
 #
 # Run it from inside your local clone so it can update the git remote.
 
@@ -12,8 +13,8 @@
 
 Use-Subscription | Out-Null
 $appId = Get-DeployAppId
-$newSubject = "repo:${Org}/${NewRepoName}:ref:refs/heads/main"
-$oldSubject = "repo:${Org}/${OldRepoName}:ref:refs/heads/main"
+$newSubject = Get-CredentialSubject $NewRepoName
+$oldSubject = Get-CredentialSubject $OldRepoName
 
 $subjects = az ad app federated-credential list --id $appId --query '[].subject' -o tsv
 if ($subjects -notcontains $newSubject) { throw "No federated credential for $newSubject. Re-run 02-create-azure.ps1." }

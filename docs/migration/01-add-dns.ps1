@@ -8,19 +8,11 @@
 $recordName = Get-RecordName $SiteDomain
 
 Write-Step "CNAME $SiteDomain -> $PagesTarget"
-if ($DnsZoneResourceGroup) {
-  Use-Subscription | Out-Null
-  az network dns record-set cname set-record `
-    -g $DnsZoneResourceGroup -z $DnsZone -n $recordName -c $PagesTarget --ttl 3600 `
-    --query '{fqdn:fqdn, target:CNAMERecord.cname}' -o table
-} else {
-  Write-Host ''
-  Write-Host '    cse-icon.com is not configured as an Azure DNS zone in config.ps1.'
-  Write-Host '    Add this record in your DNS provider, then re-run this script to check it:'
-  Write-Host ''
-  Write-Host "      Type: CNAME    Name: $recordName    Value: $PagesTarget    TTL: 3600"
-  Write-Host ''
-}
+Write-Host ''
+Write-Host "    Add this record to the $DnsZone zone in GoDaddy, then re-run this script to check it:"
+Write-Host ''
+Write-Host "      Type: CNAME    Name: $recordName    Value: $PagesTarget    TTL: 1 hour"
+Write-Host ''
 
 Write-Step 'Checking resolution (public resolver 1.1.1.1)'
 $record = Resolve-DnsName $SiteDomain -Type CNAME -Server 1.1.1.1 -DnsOnly -ErrorAction SilentlyContinue |
