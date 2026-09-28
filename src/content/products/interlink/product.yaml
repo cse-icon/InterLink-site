@@ -33,3 +33,12 @@ roadmap:
   enabled: true
   org: cse-icon
   projectNumber: 4
+  # Badge colour for each Public Category option on the board. An option not
+  # listed here renders in the neutral colour. See docs/authoring-content.md.
+  categories:
+    PI: emerald
+    OPC UA: blue
+    Platform: purple
+    Configuration: amber
+    Security: red
+    Federation: cyan

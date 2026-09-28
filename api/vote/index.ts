@@ -6,12 +6,26 @@ const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || '';
 const votesTable = TableClient.fromConnectionString(connectionString, 'votes');
 const countsTable = TableClient.fromConnectionString(connectionString, 'votecounts');
 
-const CORS_ORIGIN = process.env.SITE_URL || 'https://products.cse-icon.com';
-const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': CORS_ORIGIN,
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+// Comma-separated list of site origins allowed to call the API. More than one
+// lets the site be served from a second host (a staging domain, or localhost)
+// without redeploying. The first entry is echoed to origins not on the list.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://products.cse-icon.com')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+function corsHeaders(req: HttpRequest): Record<string, string> {
+  const origin = req.headers.get('origin') ?? '';
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    Vary: 'Origin',
+  };
+}
+
+/** A product slug as the site sends it: the product's folder name. */
+const PRODUCT_SLUG = /^[a-z0-9-]{1,40}$/;
 
 async function ensureTables() {
   await votesTable.createTable().catch(() => {});
@@ -21,6 +35,7 @@ async function ensureTables() {
 // POST /api/vote — submit a vote (immediate, no email confirmation)
 async function postVote(req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   await ensureTables();
+  const headers = corsHeaders(req);
 
   let body: { itemId?: string; email?: string; useCase?: string; product?: string };
   try {
@@ -31,13 +46,13 @@ async function postVote(req: HttpRequest, context: InvocationContext): Promise<H
       product?: string;
     };
   } catch {
-    return { status: 400, headers: CORS_HEADERS, jsonBody: { error: 'Invalid JSON body' } };
+    return { status: 400, headers, jsonBody: { error: 'Invalid JSON body' } };
   }
 
   const { itemId, email, useCase, product } = body;
 
   if (!itemId || !email || !isValidEmail(email)) {
-    return { status: 400, headers: CORS_HEADERS, jsonBody: { error: 'Valid itemId and email are required' } };
+    return { status: 400, headers, jsonBody: { error: 'Valid itemId and email are required' } };
   }
 
   const normalized = normalizeEmail(email);
@@ -46,12 +61,12 @@ async function postVote(req: HttpRequest, context: InvocationContext): Promise<H
   try {
     const existing = await votesTable.getEntity(itemId, normalized);
     if (existing) {
-      return { status: 409, headers: CORS_HEADERS, jsonBody: { error: 'You have already voted for this item.' } };
+      return { status: 409, headers, jsonBody: { error: 'You have already voted for this item.' } };
     }
   } catch (err: any) {
     if (err.statusCode !== 404) {
       context.error('Error checking existing vote:', err);
-      return { status: 500, headers: CORS_HEADERS, jsonBody: { error: 'Internal server error' } };
+      return { status: 500, headers, jsonBody: { error: 'Internal server error' } };
     }
   }
 
@@ -63,7 +78,8 @@ async function postVote(req: HttpRequest, context: InvocationContext): Promise<H
     useCase: useCase || '',
     // Which product page the vote came from. Item IDs are globally unique
     // GitHub Project node IDs, so this is for segmentation, not for keying.
-    product: product || '',
+    // Anything that is not a slug is dropped rather than stored.
+    product: typeof product === 'string' && PRODUCT_SLUG.test(product) ? product : '',
     timestamp: new Date().toISOString(),
   });
 
@@ -85,7 +101,7 @@ async function postVote(req: HttpRequest, context: InvocationContext): Promise<H
 
   return {
     status: 200,
-    headers: CORS_HEADERS,
+    headers,
     jsonBody: { message: 'Vote recorded. Thanks for your feedback!' },
   };
 }
@@ -93,21 +109,22 @@ async function postVote(req: HttpRequest, context: InvocationContext): Promise<H
 // GET /api/vote/{itemId} — get vote count
 async function getVoteCount(req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
   await ensureTables();
+  const headers = corsHeaders(req);
 
   const itemId = req.params.itemId;
   if (!itemId) {
-    return { status: 400, headers: CORS_HEADERS, jsonBody: { error: 'itemId is required' } };
+    return { status: 400, headers, jsonBody: { error: 'itemId is required' } };
   }
 
   try {
     const countEntity = await countsTable.getEntity('counts', itemId);
-    return { status: 200, headers: CORS_HEADERS, jsonBody: { itemId, count: countEntity.count || 0 } };
+    return { status: 200, headers, jsonBody: { itemId, count: countEntity.count || 0 } };
   } catch (err: any) {
     if (err.statusCode === 404) {
-      return { status: 200, headers: CORS_HEADERS, jsonBody: { itemId, count: 0 } };
+      return { status: 200, headers, jsonBody: { itemId, count: 0 } };
     }
     context.error('Error getting vote count:', err);
-    return { status: 500, headers: CORS_HEADERS, jsonBody: { error: 'Internal server error' } };
+    return { status: 500, headers, jsonBody: { error: 'Internal server error' } };
   }
 }
 
@@ -117,7 +134,7 @@ app.http('vote-post', {
   route: 'vote',
   handler: async (req, context) => {
     if (req.method === 'OPTIONS') {
-      return { status: 204, headers: CORS_HEADERS };
+      return { status: 204, headers: corsHeaders(req) };
     }
     return postVote(req, context);
   },

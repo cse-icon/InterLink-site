@@ -27,6 +27,9 @@ cta:
   body: Tell us which historian you run and we'll get you set up with a trial.
   contactEmail: sales@cse-icon.com
 
+variantsHeading: Available servers
+variantsDescription: Jump to a specific server.
+
 seo:
   title: MCP Servers — AI access to your process historian
   description: >-

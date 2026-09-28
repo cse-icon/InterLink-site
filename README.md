@@ -104,7 +104,7 @@ project number **fails the build**, so malformed content cannot reach production
 ## Repository Structure
 
 ```
-InterLink-site/
+products-site/
 ├── .github/workflows/
 │   ├── deploy-site.yml          # Test, build Astro → deploy to GitHub Pages
 │   ├── deploy-functions.yml     # Build & deploy the Azure Function
@@ -118,10 +118,8 @@ InterLink-site/
 │   └── tsconfig.json
 ├── docs/
 │   ├── authoring-content.md     # How to edit copy and add products (non-devs)
-│   └── archive/
-│       └── original-build-plan.md   # Historical spec — not current
+│   └── migration/               # One-off infrastructure migration; deleted once complete
 ├── public/
-│   ├── CNAME                    # Custom domain for GitHub Pages
 │   ├── robots.txt
 │   ├── favicon.png
 │   ├── cse-icon-logo.png
@@ -157,7 +155,7 @@ InterLink-site/
 │   ├── lib/
 │   │   ├── icons.ts             # Named inline SVGs, referenced from content
 │   │   ├── products.ts          # Collection helpers (getProducts, navFor, …)
-│   │   └── roadmap.ts           # Statuses, categories, badge classes, types
+│   │   └── roadmap.ts           # Statuses, badge colours, item type (shared with the sync)
 │   ├── pages/
 │   │   ├── index.astro          # Product index
 │   │   ├── 404.astro
@@ -204,6 +202,9 @@ The short version: edit a file under `src/content/products/<slug>/`, commit to
      enabled: true
      org: cse-icon
      projectNumber: 7      # from /orgs/cse-icon/projects/7
+     categories:           # Public Category option -> badge colour
+       Canary: emerald
+       Geo SCADA: blue
    ```
 
 That is all. The page, nav, index card, sitemap entry, and roadmap sync all pick
@@ -231,6 +232,9 @@ standing up an equivalent site.
 2. **Build and deployment → Source**: select **GitHub Actions**
 3. **Custom domain**: `products.cse-icon.com`, and tick **Enforce HTTPS**
 
+The custom domain lives only in this setting. The site deploys with
+`actions/deploy-pages`, which ignores a `CNAME` file, so the repo has none.
+
 ### 2. DNS Configuration
 
 | Type | Name | Value | TTL |
@@ -243,89 +247,90 @@ dig products.cse-icon.com +short
 ```
 
 GitHub provisions the TLS certificate once DNS propagates (5–30 minutes).
-
-> **Migration note:** the old `interlink.products` CNAME has been retired. GitHub
-> Pages serves only one custom domain per repo, so old
-> `interlink.products.cse-icon.com` URLs no longer resolve. InterLink now lives at
-> `products.cse-icon.com/interlink`.
+`cse-icon.com` DNS is hosted at Media Temple, not in Azure.
 
 ### 3. Azure Resources
 
-Current resources, all in resource group **`InterLink`** (South Central US):
+All in resource group **`cse-products`** (South Central US):
 
 | Resource | Name | Purpose |
 |---|---|---|
-| Function App | `cse-interlink-votes` | Vote API (Flex Consumption) |
-| Storage Account | `cseinterlink` | Vote data in Table Storage |
-| App Service Plan | `ASP-InterLink-87cc` | Hosts the Function App |
-| Application Insights | `cse-interlink` | Function telemetry |
+| Function App | `cse-products-votes` | Vote API (Flex Consumption, Node 24) |
+| Storage Account | `cseproducts` | Vote data in Table Storage |
+| Application Insights | `cse-products-votes` | Function telemetry |
 
-The Function App hostname is `cse-interlink-votes.azurewebsites.net`, which is
-what the repo variable `PUBLIC_VOTE_API_URL` must point at.
+The vote API is at `https://cse-products-votes.azurewebsites.net`, which is what
+the repo variable `PUBLIC_VOTE_API_URL` points at.
 
 <details>
 <summary>Creating these from scratch</summary>
 
 ```bash
 az login
-az group create --name InterLink --location southcentralus
+az group create --name cse-products --location southcentralus
 
 az storage account create \
-  --name cseinterlink \
-  --resource-group InterLink \
+  --name cseproducts \
+  --resource-group cse-products \
   --location southcentralus \
   --sku Standard_LRS \
-  --kind StorageV2
+  --kind StorageV2 \
+  --min-tls-version TLS1_2 \
+  --allow-blob-public-access false
 
-az storage account show-connection-string \
-  --name cseinterlink \
-  --resource-group InterLink \
-  --query connectionString \
-  --output tsv
-```
+# Flex Consumption: scales to zero, fast cold starts, generous free grant.
+# Also creates an Application Insights resource of the same name.
+az functionapp create \
+  --name cse-products-votes \
+  --resource-group cse-products \
+  --storage-account cseproducts \
+  --flexconsumption-location southcentralus \
+  --runtime node \
+  --runtime-version 24
 
-Create the Function App on the **Flex Consumption** plan (scales to zero, fast
-cold starts, generous free grant), Node.js 24 runtime, using the storage account
-above. Then set its configuration:
-
-```bash
 az functionapp config appsettings set \
-  --name cse-interlink-votes \
-  --resource-group InterLink \
+  --name cse-products-votes \
+  --resource-group cse-products \
   --settings \
-    "AZURE_STORAGE_CONNECTION_STRING=<connection-string>" \
-    "SITE_URL=https://products.cse-icon.com"
+    "AZURE_STORAGE_CONNECTION_STRING=$(az storage account show-connection-string \
+        --name cseproducts --resource-group cse-products --query connectionString -o tsv)" \
+    "ALLOWED_ORIGINS=https://products.cse-icon.com"
 ```
 
-`SITE_URL` is the **CORS allow-origin** — only requests from that origin are
-accepted.
+`ALLOWED_ORIGINS` is the **CORS allow-list**: a comma-separated list of site
+origins allowed to call the API, e.g.
+`https://products.cse-icon.com,http://localhost:4321`. Any other origin is
+refused.
 
-**Service principal for GitHub Actions.** Flex Consumption does not support
+**Deploy identity for GitHub Actions.** Flex Consumption does not support
 publish-profile auth, so deployment uses a service principal with an OIDC
-federated credential — no stored secrets.
+federated credential — no stored secrets. The app registration is dedicated to
+this repo; do not share it with other repos, or their workflows can deploy here.
 
 ```bash
-az ad app create --display-name "InterLink GitHub Deploy"   # note the appId
+az ad app create --display-name "CSE Products GitHub Deploy"   # note the appId
 az ad sp create --id <appId>
 
 az role assignment create \
   --assignee <appId> \
   --role "Website Contributor" \
-  --scope /subscriptions/<subscription-id>/resourceGroups/InterLink/providers/Microsoft.Web/sites/cse-interlink-votes
+  --scope $(az functionapp show --name cse-products-votes --resource-group cse-products --query id -o tsv)
 
 az ad app federated-credential create --id <appId> --parameters '{
-  "name": "github-deploy",
+  "name": "github-main-products-site",
   "issuer": "https://token.actions.githubusercontent.com",
-  "subject": "repo:cse-icon/InterLink-site:ref:refs/heads/main",
+  "subject": "repo:cse-icon/products-site:ref:refs/heads/main",
   "audiences": ["api://AzureADTokenExchange"]
 }'
 ```
 
-`Website Contributor` is deliberately narrow: it can deploy to and read the
-Function App, but cannot touch the storage account or other resources.
+`Website Contributor` on the Function App alone is deliberately narrow: it can
+deploy to and read the Function App, but cannot touch the storage account or any
+other resource.
 
-The federated credential is scoped to `main`. Deploying from another branch needs
-an additional credential for that branch.
+The federated credential is scoped to `main` in this repo. Deploying from
+another branch needs an additional credential for that branch, and renaming the
+repo needs one for the new name.
 
 </details>
 
@@ -345,11 +350,17 @@ Each product with a roadmap points at its own private Projects v2 board in the
 | `Public?` | Single select | `Yes` — **only items set to `Yes` are published**; leave blank to exclude |
 | `Public Status` | Single select | `Backlog`, `Investigating`, `In Development`, `Released` |
 | `Public Summary` | Text | The public-facing description shown on the card |
-| `Public Category` | Single select | `PI`, `OPC UA`, `Federation`, `Platform`, `Configuration`, `Security` |
+| `Public Category` | Single select | Anything the product needs. Give each option a colour in `roadmap.categories` in `product.yaml` |
 | `Public Released In` | Text | Version string, e.g. `v2.1.0` |
 
 Field names must match exactly. An item missing `Public Status` defaults to
-`Backlog`; one missing `Public Category` defaults to `Platform`.
+`Backlog`; one missing `Public Category` shows as `Other`. `Public Released In`
+is only published once an item is `Released`.
+
+`Public Status` values are fixed, because they are the board's columns. A
+`Public Category` option can be added on the board at any time: until it is
+given a colour in `product.yaml` it renders in the neutral colour, and the sync
+log warns about it.
 
 ### 5. GitHub App for Roadmap Sync
 
@@ -358,7 +369,7 @@ is used rather than a personal token: it is owned by the org, scoped narrowly, a
 does not break when someone leaves. One app covers **every** product's board.
 
 1. https://github.com/organizations/cse-icon/settings/apps → **New GitHub App**
-   - **Name:** `InterLink Roadmap Sync`
+   - **Name:** `CSE Products Roadmap Sync`
    - **Homepage URL:** `https://products.cse-icon.com`
    - **Webhook:** untick **Active**
 2. **Permissions → Organization permissions → Projects: Read-only**
@@ -382,15 +393,15 @@ does not break when someone leaves. One app covers **every** product's board.
 | Name | Value | Used By |
 |---|---|---|
 | `APP_ID` | GitHub App ID from step 5 | `sync-roadmap.yml` |
-| `PUBLIC_VOTE_API_URL` | `https://cse-interlink-votes.azurewebsites.net` | `deploy-site.yml`, `sync-roadmap.yml` |
-| `AZURE_CLIENT_ID` | Service principal `appId` | `deploy-functions.yml` |
+| `PUBLIC_VOTE_API_URL` | `https://cse-products-votes.azurewebsites.net` | `deploy-site.yml`, `sync-roadmap.yml` |
+| `AZURE_FUNCTIONAPP_NAME` | `cse-products-votes` | `deploy-functions.yml` |
+| `AZURE_CLIENT_ID` | Deploy app registration `appId` | `deploy-functions.yml` |
 | `AZURE_TENANT_ID` | `az account show --query tenantId -o tsv` | `deploy-functions.yml` |
 | `AZURE_SUBSCRIPTION_ID` | `az account show --query id -o tsv` | `deploy-functions.yml` |
 
-> **Project numbers are no longer repo variables.** They live in each product's
-> `product.yaml`. A legacy `PROJECT_NUMBER` variable may still exist and is unused
-> — it is safe to delete. `APP_INSTALLATION_ID` is likewise unused:
-> `create-github-app-token` resolves the installation from `owner:`.
+Project numbers are not repo variables: they live in each product's
+`product.yaml`. No installation ID is needed either, because
+`create-github-app-token` resolves the installation from `owner:`.
 
 ---
 
@@ -426,7 +437,9 @@ Point the site at it with a `.env` in the project root (git-ignored):
 PUBLIC_VOTE_API_URL=http://localhost:7071
 ```
 
-Without this the vote modal shows "Voting API not configured yet".
+Without this the vote modal shows "Voting API not configured yet". The local
+API's `ALLOWED_ORIGINS` (in `api/local.settings.json`) already allows
+`http://localhost:4321`.
 
 ### Tests and validation
 
@@ -492,12 +505,16 @@ All three workflows support `workflow_dispatch` — run any of them from the
 5. If new, the vote is recorded immediately and the count incremented
 6. The card's count updates in place
 
+Counts are not part of the static site. Each card renders `0` and the roadmap
+page fetches live counts from `GET /api/vote/{itemId}` when it loads.
+
 Emails are stored so the sales team can follow up. `originalEmail` preserves what
 was typed; the normalised form is the dedupe key.
 
 Vote item IDs are GitHub Project **item node IDs** (`PVTI_…`), which are globally
 unique across boards. That is why one pair of tables serves every product without
-a product key. The `product` field is recorded for segmentation only.
+a product key. The `product` field is recorded for segmentation only, and is
+stored only if it looks like a product slug.
 
 ### Anti-spam measures
 
@@ -505,7 +522,7 @@ a product key. The `product` field is recorded for segmentation only.
 |---|---|
 | Plus-alias stripping | `a+test@x.com` and `a@x.com` count as the same voter |
 | One vote per email per item | Duplicates return HTTP 409 |
-| CORS restriction | Only the origin in `SITE_URL` is accepted |
+| CORS restriction | Only origins listed in `ALLOWED_ORIGINS` are accepted |
 | Email validation | Format checked before processing |
 
 ### Azure Table schema
@@ -518,7 +535,7 @@ a product key. The `product` field is recorded for segmentation only.
 | `rowKey` | string | Normalised email (dedupe key) |
 | `originalEmail` | string | Email as entered |
 | `useCase` | string | Optional free text from the modal |
-| `product` | string | Product slug the vote came from |
+| `product` | string | Product slug the vote came from, or empty |
 | `timestamp` | string | ISO 8601 |
 
 **`votecounts`** — denormalised counts for fast reads
@@ -537,10 +554,6 @@ a product key. The `product` field is recorded for segmentation only.
 | `GET` | `/api/vote/{itemId}` | Vote count: `{ "itemId": "…", "count": 42 }` |
 | `OPTIONS` | `/api/vote` | CORS preflight |
 
-> `api/local.settings.json` contains a `SENDGRID_API_KEY` placeholder left over
-> from an email-confirmation flow that was specified but never built. No code
-> sends email; it can be removed.
-
 ---
 
 ## Roadmap Sync
@@ -554,14 +567,20 @@ queries the GitHub Projects v2 GraphQL API for each board.
 - Runs **weekly, Mondays 10:00 UTC** (`cron: '0 10 * * 1'`), or on manual dispatch
 - Writes `src/data/roadmap/<slug>.json` as `{ lastUpdated, items }`
 - Only items with `Public? = Yes` are included
-- Preserves existing vote counts by item ID
-- Warns about public items with a blank `Public Summary` (they render an empty
-  card) without failing the run
-- Commits and pushes only if the data changed, then rebuilds and redeploys Pages
-  in a second job — necessary because a `GITHUB_TOKEN` push does not trigger
-  `deploy-site.yml`
-- Attempts **every** product even if one board fails, then exits non-zero, so one
-  broken board cannot silently skip the others
+- **Validates each roadmap before writing it**, with the same rules the tests
+  apply. A board with an invalid public item (an unknown `Public Status`, a
+  duplicate) is skipped and its existing file is kept, so bad board data never
+  reaches `main`. The log names each offending item.
+- Leaves a file untouched when its items have not changed, so `lastUpdated` only
+  moves when the board does and quiet weeks produce no commit or deploy
+- Warns, without failing, about public items with a blank `Public Summary`,
+  released items with no `Public Released In`, and categories with no colour in
+  `product.yaml`
+- Runs `npm test`, then commits and pushes if anything changed, then rebuilds
+  and redeploys Pages in a second job — necessary because a `GITHUB_TOKEN` push
+  does not trigger `deploy-site.yml`
+- Attempts **every** product. If one board fails, the others are still
+  committed and deployed, and the run ends red so the failure is noticed
 
 ### Privacy
 
@@ -571,8 +590,8 @@ marked public. It never dumps the API response or the fields of non-public items
 
 ### Adding a roadmap to another product
 
-Set `roadmap.enabled: true` and `roadmap.projectNumber` in that product's
-`product.yaml`. Nothing else changes: the App token already has org-wide project
+Set `roadmap.enabled: true`, `roadmap.projectNumber` and `roadmap.categories`
+in that product's `product.yaml`. Nothing else changes: the App token already has org-wide project
 read access, and the sync discovers the new board on its next run.
 
 ---
@@ -620,6 +639,13 @@ generated for products that opted in.
 - Verify `APP_ID` and `APP_PRIVATE_KEY` are set
 - Newly granted permissions can take a few minutes to propagate
 
+### Sync fails with "invalid public item(s)"
+
+A public item on that product's board has a value the site cannot render — most
+often a `Public Status` that is not one of the four columns. The log lists each
+item and problem. Fix them on the board and re-run **Sync Roadmap**. Until then
+the product keeps its previous roadmap and other products sync normally.
+
 ### Sync fails with "has not been granted the required scopes"
 
 The token lacks `read:project`. In CI this means the App's permissions are wrong.
@@ -628,22 +654,23 @@ or run `gh auth refresh -s read:project`.
 
 ### Votes return CORS errors
 
-The Function App's `SITE_URL` must exactly match the site origin:
+The Function App's `ALLOWED_ORIGINS` must include the site origin exactly —
+scheme, host, no trailing slash:
 
 ```bash
 az functionapp config appsettings list \
-  --name cse-interlink-votes \
-  --resource-group InterLink \
-  --query "[?name=='SITE_URL']" -o table
+  --name cse-products-votes \
+  --resource-group cse-products \
+  --query "[?name=='ALLOWED_ORIGINS']" -o table
 ```
 
-It must be `https://products.cse-icon.com`. Set it with:
+Set it with:
 
 ```bash
 az functionapp config appsettings set \
-  --name cse-interlink-votes \
-  --resource-group InterLink \
-  --settings "SITE_URL=https://products.cse-icon.com"
+  --name cse-products-votes \
+  --resource-group cse-products \
+  --settings "ALLOWED_ORIGINS=https://products.cse-icon.com"
 ```
 
 ### Vote button shows "Voting API not configured yet"
@@ -651,7 +678,7 @@ az functionapp config appsettings set \
 `PUBLIC_VOTE_API_URL` was not set at build time. It is inlined by Astro during
 the build, so it must be present then — set the repo **variable** (not a secret),
 or a local `.env` for development. It must be
-`https://cse-interlink-votes.azurewebsites.net`.
+`https://cse-products-votes.azurewebsites.net`.
 
 ### Azure Function deploy fails with 401 Unauthorized
 
@@ -659,19 +686,14 @@ OIDC between Actions and Azure is not working:
 
 ```bash
 az role assignment list --assignee <client-id> \
-  --scope /subscriptions/<sub-id>/resourceGroups/InterLink/providers/Microsoft.Web/sites/cse-interlink-votes
+  --scope $(az functionapp show --name cse-products-votes --resource-group cse-products --query id -o tsv)
 
 az ad app federated-credential list --id <client-id>
 ```
 
 The credential `subject` must be
-`repo:cse-icon/InterLink-site:ref:refs/heads/main`. Deploying from another branch
-needs its own credential.
-
-> The repo is still named `InterLink-site` although it now serves all products.
-> Renaming it would break this federated credential subject and the git remote, so
-> it has been left alone deliberately. If you do rename it, update the credential
-> in the same change.
+`repo:cse-icon/products-site:ref:refs/heads/main`. Deploying from another branch,
+or from the repo under a different name, needs its own credential.
 
 ### Dark mode flickers on page load
 

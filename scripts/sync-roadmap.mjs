@@ -8,7 +8,11 @@
  * Required environment variables:
  *   GH_TOKEN  — GitHub App token (or PAT) with org-level read:project
  *
- * Writes src/data/roadmap/<slug>.json as { lastUpdated, items }.
+ * Writes src/data/roadmap/<slug>.json as { lastUpdated, items }. A roadmap is
+ * validated before it is written; one that fails is skipped and its existing
+ * file is left alone, so bad board data never reaches main. A roadmap whose
+ * items have not changed is not rewritten, so `lastUpdated` only moves when the
+ * board does.
  *
  * Usage:
  *   node scripts/sync-roadmap.mjs            # fetch and write
@@ -26,8 +30,11 @@ import { parse as parseYaml } from 'yaml';
 import {
   filterPublicItems,
   transformItem,
-  preserveVoteCounts,
+  validateRoadmap,
+  sameItems,
   itemsMissingSummary,
+  releasedWithoutVersion,
+  uncoloredCategories,
 } from './roadmap-helpers.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -72,7 +79,7 @@ const GRAPHQL_QUERY = `
 
 /**
  * Read every product.yaml and return those that opted into a roadmap.
- * @returns {{ slug: string, org: string, projectNumber: number }[]}
+ * @returns {{ slug: string, org: string, projectNumber: number, categories: Record<string, string> }[]}
  */
 function loadRoadmapProducts() {
   if (!existsSync(PRODUCTS_DIR)) {
@@ -104,6 +111,7 @@ function loadRoadmapProducts() {
       slug,
       org: roadmap.org ?? 'cse-icon',
       projectNumber: Number(roadmap.projectNumber),
+      categories: roadmap.categories ?? {},
     });
   }
 
@@ -157,33 +165,51 @@ async function fetchProjectItems({ org, projectNumber }) {
   return items;
 }
 
-/** Sync one product. Returns a short result line for the summary. */
-async function syncProduct({ slug, org, projectNumber }) {
+/** Print a warning with the titles it concerns. Titles are of public items only. */
+function warn(message, titles) {
+  if (titles.length === 0) return;
+  console.warn(`  ! ${titles.length} ${message}:`);
+  for (const title of titles) console.warn(`      - ${title}`);
+}
+
+/** Read the roadmap file already committed for a product, if there is one. */
+function readExisting(outputPath) {
+  if (!existsSync(outputPath)) return null;
+  return JSON.parse(readFileSync(outputPath, 'utf-8'));
+}
+
+/**
+ * Sync one product. Returns a short result line for the summary, and throws
+ * without writing anything if the board's public items are invalid.
+ */
+async function syncProduct({ slug, org, projectNumber, categories }) {
   const rawItems = await fetchProjectItems({ org, projectNumber });
-  const publicItems = filterPublicItems(rawItems);
-  let items = publicItems.map(transformItem);
+  const items = filterPublicItems(rawItems).map(transformItem);
 
-  const outputPath = join(OUTPUT_DIR, `${slug}.json`);
-
-  // Carry forward vote counts. Azure Table Storage is the source of truth and
-  // the board is re-read client-side, so this only keeps the static fallback warm.
-  try {
-    const existing = JSON.parse(readFileSync(outputPath, 'utf-8'));
-    items = preserveVoteCounts(items, existing.items ?? []);
-  } catch {
-    // No existing file, or it predates the { lastUpdated, items } shape.
+  const errors = validateRoadmap(items);
+  if (errors.length > 0) {
+    for (const error of errors) console.error(`      - ${error}`);
+    throw new Error(
+      `${errors.length} invalid public item(s); fix them on the board. The existing roadmap file was kept.`,
+    );
   }
 
-  const missing = itemsMissingSummary(items);
-  if (missing.length > 0) {
-    console.warn(
-      `  ! ${missing.length} public item(s) have no Public Summary and will render an empty card:`,
-    );
-    for (const title of missing) console.warn(`      - ${title}`);
+  warn('public item(s) have no Public Summary and will render an empty card', itemsMissingSummary(items));
+  warn('released item(s) have no Public Released In version', releasedWithoutVersion(items));
+  warn(
+    `board category name(s) have no colour in ${slug}/product.yaml roadmap.categories and will render neutral`,
+    uncoloredCategories(items, categories),
+  );
+
+  const outputPath = join(OUTPUT_DIR, `${slug}.json`);
+  const counts = `${items.length} public of ${rawItems.length} board items`;
+
+  if (sameItems(readExisting(outputPath)?.items ?? null, items)) {
+    return `${slug}: ${counts}, unchanged`;
   }
 
   if (DRY_RUN) {
-    return `${slug}: ${items.length} public of ${rawItems.length} board items (dry run, nothing written)`;
+    return `${slug}: ${counts}, changed (dry run, nothing written)`;
   }
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -192,7 +218,7 @@ async function syncProduct({ slug, org, projectNumber }) {
     `${JSON.stringify({ lastUpdated: new Date().toISOString(), items }, null, 2)}\n`,
   );
 
-  return `${slug}: ${items.length} public of ${rawItems.length} board items -> ${outputPath}`;
+  return `${slug}: ${counts} -> ${outputPath}`;
 }
 
 async function main() {
@@ -218,7 +244,8 @@ async function main() {
   const summaries = [];
   const failures = [];
 
-  // Every product is attempted so one bad board cannot silently skip the rest.
+  // Every product is attempted, and each good one is written, before the exit
+  // code reports any failure. sync-roadmap.yml still commits the good ones.
   for (const product of products) {
     console.log(`\n${product.slug} <- ${product.org}/projects/${product.projectNumber}`);
     try {

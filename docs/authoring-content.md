@@ -9,7 +9,8 @@ publishes the site in about a minute.
 
 One folder per product. The **folder name is the URL**, so
 `src/content/products/interlink/` becomes `products.cse-icon.com/interlink`.
-Folder names must be lowercase, because URLs are case-sensitive.
+Folder names must be lowercase letters, digits and dashes (e.g. `geo-scada`);
+anything else fails the build.
 
 ```
 src/content/products/
@@ -118,6 +119,8 @@ and the sitemap entry are all generated from the content.
 | `draft` | no | `true` hides the product completely (default `false`) |
 | `heroImage` | no | Faint background image for the hero |
 | `endorsement` | no | Trust badge above the CTA (`image`, `alt`, `caption`) |
+| `variantsHeading` | no | Heading above the variant jump links (default "Editions") |
+| `variantsDescription` | no | Line under that heading (default "Jump to a specific edition.") |
 | `roadmap` | no | See below; defaults to no roadmap |
 
 ### Working in private with `draft`
@@ -162,6 +165,14 @@ than a card.
 Put anything flavour-specific here, and keep `sections/` for what is true of
 every flavour.
 
+The jump links sit under a heading that defaults to "Editions". Name the
+flavours what your product calls them in `product.yaml`:
+
+```yaml
+variantsHeading: Available servers
+variantsDescription: Jump to a specific server.
+```
+
 ## Turning on a roadmap
 
 A product's roadmap is driven by a **private GitHub Projects board**. Only items
@@ -172,7 +183,16 @@ roadmap:
   enabled: true
   org: cse-icon
   projectNumber: 4       # from the board URL: /orgs/cse-icon/projects/4
+  categories:            # each Public Category option on the board, and its badge colour
+    PI: emerald
+    OPC UA: blue
+    Platform: purple
 ```
+
+**Colours:** `slate`, `red`, `amber`, `yellow`, `green`, `emerald`, `cyan`,
+`blue`, `purple`, `pink`. A category on the board that is not listed here still
+shows up, in grey (`slate`), so adding an option to the board never breaks the
+site — add it here when you want it coloured.
 
 That is the only change needed — `/<slug>/roadmap` starts building, a Roadmap
 link appears in the product's nav, and the weekly sync picks up the new board
@@ -195,6 +215,8 @@ run, and read the error: it names the file and the field.
 | --- | --- |
 | `Invalid option: expected one of "database"…` | Unrecognised `icon` value |
 | `roadmap.projectNumber is required when roadmap.enabled is true` | Enabled a roadmap without a board number |
+| `Invalid option: expected one of "slate"…` under `roadmap.categories` | A category colour that is not in the list above |
+| `Product folder "…" must be lowercase kebab-case` | A product folder name with capitals, spaces or underscores |
 | `Required` next to a field name | A required field is missing or misspelled |
 | `Expected array, received string` | A list item is missing its `- ` prefix |
 | `bad indentation` / `unexpected end of stream` | YAML indentation is off, or a tab was used instead of spaces |

@@ -1,13 +1,15 @@
 ---
 import RoadmapItem from './RoadmapItem.astro';
-import { ROADMAP_COLUMNS, categoryBadge } from '../lib/roadmap';
-import type { RoadmapItem as RoadmapEntry } from '../lib/roadmap';
+import { DEFAULT_BADGE_COLOR, ROADMAP_COLUMNS, categoryBadge } from '../lib/roadmap';
+import type { BadgeColor, RoadmapItem as RoadmapEntry } from '../lib/roadmap';
 
 interface Props {
   items: RoadmapEntry[];
+  /** The product's `roadmap.categories`: category name to badge colour. */
+  categoryColors: Record<string, BadgeColor>;
 }
 
-const { items } = Astro.props;
+const { items, categoryColors } = Astro.props;
 
 const categories = [...new Set(items.map((i) => i.category))].sort();
 ---
@@ -17,14 +19,14 @@ const categories = [...new Set(items.map((i) => i.category))].sort();
   <div class="mb-8 flex flex-wrap items-center gap-2">
     <span class="text-sm font-medium text-[var(--color-text-muted)]">Filter:</span>
     <button
-      class="category-filter badge badge-platform active-filter rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
+      class={`category-filter badge badge-${DEFAULT_BADGE_COLOR} active-filter rounded-lg px-3 py-1.5 text-sm font-medium transition-colors`}
       data-category="all"
     >
       All
     </button>
     {categories.map((cat) => (
       <button
-        class={`category-filter badge ${categoryBadge(cat)} rounded-lg px-3 py-1.5 text-sm font-medium opacity-60 transition-all hover:opacity-100`}
+        class={`category-filter badge ${categoryBadge(cat, categoryColors)} rounded-lg px-3 py-1.5 text-sm font-medium opacity-60 transition-all hover:opacity-100`}
         data-category={cat}
       >
         {cat}
@@ -45,7 +47,7 @@ const categories = [...new Set(items.map((i) => i.category))].sort();
           </div>
           <div class="flex flex-col gap-3 roadmap-column" data-column-status={col.key}>
             {colItems.map((item) => (
-              <RoadmapItem {...item} />
+              <RoadmapItem {...item} badgeClass={categoryBadge(item.category, categoryColors)} />
             ))}
             {colItems.length === 0 && (
               <p class="rounded-lg border border-dashed border-[var(--color-border)] p-6 text-center text-sm text-[var(--color-text-muted)]">
@@ -101,7 +103,7 @@ const categories = [...new Set(items.map((i) => i.category))].sort();
           }
         }
       } catch {
-        // Silent fail — static count stays as fallback
+        // Silent fail — the card keeps showing 0
       }
     });
   }

@@ -62,7 +62,7 @@ const lastUpdated = roadmap
 
   <section class="pb-14">
     {items.length > 0 ? (
-      <RoadmapBoard items={items} />
+      <RoadmapBoard items={items} categoryColors={product.data.roadmap.categories} />
     ) : (
       <div class="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
         <p class="rounded-lg border border-dashed border-[var(--color-border)] p-8 text-sm text-[var(--color-text-muted)]">

@@ -8,10 +8,15 @@ interface Props {
   description?: string;
   /** When set, the nav is scoped to this product and shows its links. */
   product?: Product;
-  /** Href of the nav link to mark current, e.g. `/interlink/roadmap`. */
+  /** Href of the nav link to mark current, e.g. `/<slug>/roadmap`. */
   activeHref?: string;
-  /** Other published products, for the switcher menu. */
+  /** Published products, for the switcher menu. Only shown on a product's pages. */
   siblings?: Product[];
+  /**
+   * Keep the page out of search results and omit its canonical and og:url. For
+   * pages like 404 that are served at URLs other than their own.
+   */
+  noindex?: boolean;
   footerVariant?: 'plain' | 'brand';
   /** Root-relative OG image path. */
   ogImage?: string;
@@ -25,10 +30,14 @@ const {
   siblings = [],
   footerVariant = 'plain',
   ogImage = '/cse-icon-logo.png',
+  noindex = false,
 } = Astro.props;
 
 const links: NavLink[] = product ? navFor(product) : [];
-const others = siblings.filter((p) => p.id !== product?.id);
+// The index and 404 pages already list every product in their body, and at
+// phone width a second "Products" label crowds the header, so the switcher is
+// only rendered within a product.
+const others = product ? siblings.filter((p) => p.id !== product.id) : [];
 
 // Astro.site comes from `site` in astro.config.mjs; the fallback keeps this
 // resolvable if the config is ever missing a site URL.
@@ -52,7 +61,7 @@ const footerLinkClass =
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
-    <link rel="canonical" href={canonical.href} />
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical.href} />}
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -63,7 +72,7 @@ const footerLinkClass =
     <meta property="og:site_name" content="CSE ICON Products" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical.href} />
+    {!noindex && <meta property="og:url" content={canonical.href} />}
     <meta property="og:image" content={ogImageUrl.href} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
@@ -119,7 +128,7 @@ const footerLinkClass =
                 aria-haspopup="true"
                 class="inline-flex items-center gap-1 text-sm font-semibold text-[var(--color-text-muted)] transition-colors hover:text-brand-600"
               >
-                {product ? 'More' : 'Products'}
+                More
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                 </svg>

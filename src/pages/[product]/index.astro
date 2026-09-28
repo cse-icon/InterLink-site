@@ -24,9 +24,20 @@ export async function getStaticPaths() {
 }
 
 const { product, siblings, sections, variants } = Astro.props;
-const { name, tagline, subtitle, heroImage, endorsement, cta, seo, roadmap } = product.data;
+const {
+  name,
+  tagline,
+  subtitle,
+  heroImage,
+  endorsement,
+  cta,
+  seo,
+  roadmap,
+  variantsHeading,
+  variantsDescription,
+} = product.data;
 
-/** Section anchor from its filename, e.g. `interlink/sections/01-security` -> `security`. */
+/** Section anchor from its filename, e.g. `<slug>/sections/01-security` -> `security`. */
 const anchorFor = (id: string) =>
   id.split('/').pop()!.replace(/^\d+-/, '');
 ---
@@ -76,13 +87,13 @@ const anchorFor = (id: string) =>
 
   {variants.length > 0 && (
     <div class="mx-auto max-w-7xl px-4 pt-6 sm:px-6 lg:px-8">
-      <h2 class="section-heading">Available servers</h2>
-      <p class="section-description">Jump to a specific server.</p>
+      <h2 class="section-heading">{variantsHeading}</h2>
+      <p class="section-description">{variantsDescription}</p>
       <div class="mt-4 flex flex-wrap gap-2">
         {variants.map((variant) => (
           <a
             href={`#${variant.data.anchor}`}
-            class="badge badge-platform rounded-lg px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-80"
+            class="badge badge-slate rounded-lg px-3 py-1.5 text-sm font-medium transition-opacity hover:opacity-80"
           >
             {variant.data.name}
           </a>

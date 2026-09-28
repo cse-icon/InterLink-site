@@ -1,4 +1,4 @@
-import { getCollection, getEntry, type CollectionEntry } from 'astro:content';
+import { getCollection, type CollectionEntry } from 'astro:content';
 
 export type Product = CollectionEntry<'products'>;
 export type ProductSection = CollectionEntry<'productSections'>;
@@ -24,18 +24,10 @@ function isVisible(product: Product): boolean {
 
 /** Visible products, ordered for display. */
 export async function getProducts(): Promise<Product[]> {
-  const products = await getCollection('products', ({ data }) =>
-    import.meta.env.PROD ? !data.draft : true,
-  );
+  const products = await getCollection('products', isVisible);
   return products.sort(
     (a, b) => a.data.order - b.data.order || a.data.name.localeCompare(b.data.name),
   );
-}
-
-/** A single visible product, or undefined if missing or hidden. */
-export async function getProduct(slug: string): Promise<Product | undefined> {
-  const product = await getEntry('products', slug);
-  return product && isVisible(product) ? product : undefined;
 }
 
 /** Feature sections for a product, ordered by filename (e.g. 01-, 02-). */

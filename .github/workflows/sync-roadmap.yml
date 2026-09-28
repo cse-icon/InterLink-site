@@ -36,13 +36,24 @@ jobs:
       - run: npm ci
 
       # Which boards to read comes from each product.yaml, not from CI variables.
+      # The script validates each roadmap before writing it and skips any that
+      # fail, so this step can fail while other products still synced.
       - name: Fetch roadmaps from GitHub Projects
+        id: fetch
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: node scripts/sync-roadmap.mjs
 
+      # The steps below run even when one board failed, so the products that
+      # synced are still published. The job itself still ends red.
+      - name: Test synced data
+        id: test
+        if: ${{ !cancelled() }}
+        run: npm test
+
       - name: Commit if changed
         id: commit
+        if: ${{ !cancelled() && steps.test.outcome == 'success' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -59,7 +70,8 @@ jobs:
   # GITHUB_TOKEN, which does not trigger deploy-site.yml.
   deploy:
     needs: sync
-    if: needs.sync.outputs.changed == 'true'
+    # Deploy whatever was committed, even if another product's board failed.
+    if: ${{ !cancelled() && needs.sync.outputs.changed == 'true' }}
     runs-on: ubuntu-latest
     concurrency:
       group: pages

@@ -3,10 +3,14 @@ import {
   getField,
   filterPublicItems,
   transformItem,
-  preserveVoteCounts,
   validateRoadmapItem,
+  validateRoadmap,
+  sameItems,
   itemsMissingSummary,
+  releasedWithoutVersion,
+  uncoloredCategories,
 } from '../scripts/roadmap-helpers.mjs';
+import { ROADMAP_STATUSES, UNCATEGORIZED } from '../src/lib/roadmap.ts';
 
 // ── Helpers to build mock project items ───────────────────────────
 
@@ -137,7 +141,7 @@ describe('transformItem', () => {
       fields: [
         makeTextField('Public Summary', 'Expose AF Analysis outputs as OPC UA nodes'),
         makeSingleSelectField('Public Category', 'PI'),
-        makeSingleSelectField('Public Status', 'In Development'),
+        makeSingleSelectField('Public Status', 'Released'),
         makeTextField('Public Released In', 'v2.1.0'),
       ],
     });
@@ -147,10 +151,21 @@ describe('transformItem', () => {
       title: 'AF Analysis Support',
       summary: 'Expose AF Analysis outputs as OPC UA nodes',
       category: 'PI',
-      status: 'In Development',
+      status: 'Released',
       releasedIn: 'v2.1.0',
-      votes: 0,
     });
+  });
+
+  it('drops releasedIn from an item that is not released yet', () => {
+    const item = makeItem({
+      id: 'PVTI_wip',
+      title: 'Work in progress',
+      fields: [
+        makeSingleSelectField('Public Status', 'In Development'),
+        makeTextField('Public Released In', 'v3.0.0'),
+      ],
+    });
+    expect(transformItem(item).releasedIn).toBeNull();
   });
 
   it('applies defaults for missing fields', () => {
@@ -160,10 +175,9 @@ describe('transformItem', () => {
       id: 'PVTI_min',
       title: 'Minimal',
       summary: '',
-      category: 'Platform',
+      category: UNCATEGORIZED,
       status: 'Backlog',
       releasedIn: null,
-      votes: 0,
     });
   });
 
@@ -190,68 +204,9 @@ describe('transformItem', () => {
     expect(transformItem(item).title).toBe('Untitled');
   });
 
-  it('always initializes votes to 0', () => {
+  it('does not include vote counts, which the vote API serves live', () => {
     const item = makeItem({ id: '1', title: 'New', fields: [] });
-    expect(transformItem(item).votes).toBe(0);
-  });
-});
-
-// ── preserveVoteCounts ────────────────────────────────────────────
-
-describe('preserveVoteCounts', () => {
-  it('carries forward vote counts by ID', () => {
-    const newItems = [
-      { id: '1', title: 'A', votes: 0 },
-      { id: '2', title: 'B', votes: 0 },
-    ];
-    const existing = [
-      { id: '1', votes: 42 },
-      { id: '2', votes: 7 },
-    ];
-    const result = preserveVoteCounts(newItems, existing);
-    expect(result[0].votes).toBe(42);
-    expect(result[1].votes).toBe(7);
-  });
-
-  it('keeps 0 votes for new items not in existing data', () => {
-    const newItems = [{ id: 'new-1', title: 'Brand New', votes: 0 }];
-    const existing = [{ id: 'old-1', votes: 10 }];
-    const result = preserveVoteCounts(newItems, existing);
-    expect(result[0].votes).toBe(0);
-  });
-
-  it('handles empty existing data', () => {
-    const newItems = [{ id: '1', title: 'A', votes: 0 }];
-    const result = preserveVoteCounts(newItems, []);
-    expect(result[0].votes).toBe(0);
-  });
-
-  it('handles empty new data', () => {
-    const existing = [{ id: '1', votes: 99 }];
-    const result = preserveVoteCounts([], existing);
-    expect(result).toEqual([]);
-  });
-
-  it('does not mutate the input arrays', () => {
-    const newItems = [{ id: '1', title: 'A', votes: 0 }];
-    const existing = [{ id: '1', votes: 5 }];
-    const newItemsCopy = JSON.parse(JSON.stringify(newItems));
-    preserveVoteCounts(newItems, existing);
-    expect(newItems).toEqual(newItemsCopy);
-  });
-
-  it('preserves zero vote counts from existing data', () => {
-    const newItems = [{ id: '1', title: 'A', votes: 0 }];
-    const existing = [{ id: '1', votes: 0 }];
-    const result = preserveVoteCounts(newItems, existing);
-    expect(result[0].votes).toBe(0);
-  });
-
-  it('handles existing items with missing votes field', () => {
-    const newItems = [{ id: '1', title: 'A', votes: 0 }];
-    const existing = [{ id: '1' }]; // no votes property
-    const result = preserveVoteCounts(newItems, existing);
-    expect(result[0].votes).toBe(0);
+    expect(transformItem(item)).not.toHaveProperty('votes');
   });
 });
 
@@ -265,7 +220,6 @@ describe('validateRoadmapItem', () => {
     category: 'PI',
     status: 'Backlog',
     releasedIn: null,
-    votes: 0,
   };
 
   it('validates a correct item', () => {
@@ -275,7 +229,7 @@ describe('validateRoadmapItem', () => {
   });
 
   it('validates all valid statuses', () => {
-    for (const status of ['Backlog', 'Investigating', 'In Development', 'Released']) {
+    for (const status of ROADMAP_STATUSES) {
       const result = validateRoadmapItem({ ...validItem, status });
       expect(result.valid).toBe(true);
     }
@@ -299,15 +253,14 @@ describe('validateRoadmapItem', () => {
     expect(result.errors[0]).toContain('status must be one of');
   });
 
-  it('rejects negative votes', () => {
-    const result = validateRoadmapItem({ ...validItem, votes: -1 });
-    expect(result.valid).toBe(false);
-    expect(result.errors).toContain('votes must be a non-negative number');
+  it('accepts any non-empty category, since each product names its own', () => {
+    const result = validateRoadmapItem({ ...validItem, category: 'Geo SCADA' });
+    expect(result.valid).toBe(true);
   });
 
-  it('rejects non-number votes', () => {
-    const result = validateRoadmapItem({ ...validItem, votes: '10' });
-    expect(result.valid).toBe(false);
+  it('rejects an empty category', () => {
+    const result = validateRoadmapItem({ ...validItem, category: '' });
+    expect(result.errors).toContain('category must be a non-empty string');
   });
 
   it('accepts a string releasedIn', () => {
@@ -329,7 +282,6 @@ describe('validateRoadmapItem', () => {
       category: 99,
       status: 'Invalid',
       releasedIn: true,
-      votes: -5,
     });
     expect(result.valid).toBe(false);
     expect(result.errors.length).toBeGreaterThanOrEqual(5);
@@ -358,5 +310,81 @@ describe('itemsMissingSummary', () => {
 
   it('returns an empty array for no items', () => {
     expect(itemsMissingSummary([])).toEqual([]);
+  });
+});
+
+// ── validateRoadmap ───────────────────────────────────────────────
+
+describe('validateRoadmap', () => {
+  const item = (id, overrides = {}) => ({
+    id,
+    title: `Item ${id}`,
+    summary: '',
+    category: 'PI',
+    status: 'Backlog',
+    releasedIn: null,
+    ...overrides,
+  });
+
+  it('returns no errors for a valid roadmap', () => {
+    expect(validateRoadmap([item('1'), item('2')])).toEqual([]);
+  });
+
+  it('returns no errors for an empty roadmap', () => {
+    expect(validateRoadmap([])).toEqual([]);
+  });
+
+  it('names the item for each invalid field', () => {
+    const errors = validateRoadmap([item('1', { status: 'Done' })]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/^"Item 1": status must be one of/);
+  });
+
+  it('reports duplicate ids', () => {
+    expect(validateRoadmap([item('1'), item('1')])).toEqual(['"Item 1": duplicate id 1']);
+  });
+});
+
+// ── sameItems ─────────────────────────────────────────────────────
+
+describe('sameItems', () => {
+  const items = [{ id: '1', title: 'A' }];
+
+  it('is true for identical lists', () => {
+    expect(sameItems(items, [{ id: '1', title: 'A' }])).toBe(true);
+  });
+
+  it('is false when an item changed', () => {
+    expect(sameItems(items, [{ id: '1', title: 'B' }])).toBe(false);
+  });
+
+  it('is false when there is no existing file', () => {
+    expect(sameItems(null, items)).toBe(false);
+  });
+});
+
+// ── releasedWithoutVersion ────────────────────────────────────────
+
+describe('releasedWithoutVersion', () => {
+  it('returns titles of released items with no version', () => {
+    const items = [
+      { title: 'Versioned', status: 'Released', releasedIn: 'v1.0' },
+      { title: 'Unversioned', status: 'Released', releasedIn: null },
+      { title: 'In progress', status: 'Backlog', releasedIn: null },
+    ];
+    expect(releasedWithoutVersion(items)).toEqual(['Unversioned']);
+  });
+});
+
+// ── uncoloredCategories ───────────────────────────────────────────
+
+describe('uncoloredCategories', () => {
+  it('returns categories missing from the colour map, once each, sorted', () => {
+    const items = [{ category: 'PI' }, { category: 'Zeta' }, { category: 'Alpha' }, { category: 'Zeta' }];
+    expect(uncoloredCategories(items, { PI: 'emerald' })).toEqual(['Alpha', 'Zeta']);
+  });
+
+  it('returns an empty array when every category has a colour', () => {
+    expect(uncoloredCategories([{ category: 'PI' }], { PI: 'emerald' })).toEqual([]);
   });
 });

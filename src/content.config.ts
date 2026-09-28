@@ -2,7 +2,7 @@ import { defineCollection } from 'astro:content';
 import { z } from 'astro/zod';
 import { glob } from 'astro/loaders';
 import { iconNames } from './lib/icons';
-import { ROADMAP_CATEGORIES, ROADMAP_STATUSES } from './lib/roadmap';
+import { BADGE_COLORS, ROADMAP_STATUSES } from './lib/roadmap';
 
 /**
  * Content collections for the multi-product site.
@@ -16,8 +16,21 @@ import { ROADMAP_CATEGORIES, ROADMAP_STATUSES } from './lib/roadmap';
  * src/content/products/interlink/. See docs/authoring-content.md.
  */
 
-/** The directory name of a product is its slug and its collection id. */
-const slugFromEntry = ({ entry }: { entry: string }) => entry.split('/')[0];
+/**
+ * The directory name of a product is its slug and its collection id.
+ *
+ * Sections, variants and roadmaps keep Astro's default ids, which lowercase each
+ * path segment. A folder that is not already lowercase kebab-case would give the
+ * product a different id from its own sections, and its page would build with no
+ * sections and no error, so it is rejected here.
+ */
+const slugFromEntry = ({ entry }: { entry: string }) => {
+  const slug = entry.split('/')[0];
+  if (!/^[a-z0-9-]+$/.test(slug)) {
+    throw new Error(`Product folder "${slug}" must be lowercase kebab-case, e.g. "my-product"`);
+  }
+  return slug;
+};
 
 const feature = z.object({
   title: z.string().min(1),
@@ -31,12 +44,16 @@ const feature = z.object({
  * unreadable without the sync workflow's GitHub App token — so keeping it in
  * content means adding a product is a pure content change with no CI variables
  * to update. Consumed by scripts/sync-roadmap.mjs.
+ *
+ * `categories` maps each `Public Category` option on the board to a badge
+ * colour. A category missing from the map still renders, in the neutral colour.
  */
 const roadmapConfig = z
   .object({
     enabled: z.boolean().default(false),
     org: z.string().default('cse-icon'),
     projectNumber: z.number().int().positive().optional(),
+    categories: z.record(z.string().min(1), z.enum(BADGE_COLORS)).default({}),
   })
   .refine((r) => !r.enabled || r.projectNumber !== undefined, {
     message:
@@ -81,7 +98,10 @@ const products = defineCollection({
       title: z.string().min(1),
       description: z.string().min(1),
     }),
-    roadmap: roadmapConfig.default({ enabled: false, org: 'cse-icon' }),
+    /** Heading and intro above the variant jump links, when the product has variants. */
+    variantsHeading: z.string().min(1).default('Editions'),
+    variantsDescription: z.string().min(1).default('Jump to a specific edition.'),
+    roadmap: roadmapConfig.default({ enabled: false, org: 'cse-icon', categories: {} }),
   }),
 });
 
@@ -133,10 +153,10 @@ const roadmaps = defineCollection({
         title: z.string().min(1),
         // May be empty: transformItem defaults a missing Public Summary to ''.
         summary: z.string(),
-        category: z.enum(ROADMAP_CATEGORIES),
+        // Free text: each product names its own categories on its board.
+        category: z.string().min(1),
         status: z.enum(ROADMAP_STATUSES),
         releasedIn: z.string().nullable(),
-        votes: z.number().int().nonnegative(),
       }),
     ),
   }),
