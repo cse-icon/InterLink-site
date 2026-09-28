@@ -297,10 +297,21 @@ az functionapp config appsettings set \
     "ALLOWED_ORIGINS=https://products.cse-icon.com"
 ```
 
-`ALLOWED_ORIGINS` is the **CORS allow-list**: a comma-separated list of site
-origins allowed to call the API, e.g.
-`https://products.cse-icon.com,http://localhost:4321`. Any other origin is
-refused.
+CORS is set in **two places, which must list the same origins**:
+
+- `ALLOWED_ORIGINS`, a comma-separated list read by the function code, e.g.
+  `https://products.cse-icon.com,http://localhost:4321`. It sets the CORS
+  headers on actual `GET` and `POST` responses.
+- The Function App's **platform CORS** setting. The Functions host answers
+  browser preflights itself, before the function code runs. Without this
+  setting it answers them with no CORS headers, and browsers block every vote.
+
+```bash
+az functionapp cors add \
+  --name cse-products-votes \
+  --resource-group Products \
+  --allowed-origins https://products.cse-icon.com
+```
 
 **Deploy identity for GitHub Actions.** Flex Consumption does not support
 publish-profile auth, so deployment uses OIDC — no stored secrets. The identity
@@ -521,7 +532,7 @@ stored only if it looks like a product slug.
 |---|---|
 | Plus-alias stripping | `a+test@x.com` and `a@x.com` count as the same voter |
 | One vote per email per item | Duplicates return HTTP 409 |
-| CORS restriction | Only origins listed in `ALLOWED_ORIGINS` are accepted |
+| CORS restriction | Only origins in `ALLOWED_ORIGINS` and platform CORS are accepted |
 | Email validation | Format checked before processing |
 
 ### Azure Table schema
@@ -670,6 +681,15 @@ az functionapp config appsettings set \
   --name cse-products-votes \
   --resource-group Products \
   --settings "ALLOWED_ORIGINS=https://products.cse-icon.com"
+```
+
+If the browser's preflight (`OPTIONS`) comes back `204` with no
+`Access-Control-Allow-Origin`, the platform CORS setting is missing the origin:
+
+```bash
+az functionapp cors show --name cse-products-votes --resource-group Products
+az functionapp cors add --name cse-products-votes --resource-group Products \
+  --allowed-origins https://products.cse-icon.com
 ```
 
 ### Vote button shows "Voting API not configured yet"

@@ -40,9 +40,10 @@ Test-Check 'Built against the new vote API' {
 }
 
 Test-Check 'HTTP redirects to HTTPS' {
-  $res = Invoke-WebRequest "http://$SiteDomain/" -MaximumRedirection 0 -SkipHttpErrorCheck
-  if ($res.StatusCode -notin 301, 308) { throw "status $($res.StatusCode)" }
-  "($($res.StatusCode))"
+  # curl.exe, because Invoke-WebRequest throws on an unfollowed redirect.
+  $status = curl.exe -s -o NUL -w '%{http_code}' "http://$SiteDomain/"
+  if ($status -notin '301', '308') { throw "status $status" }
+  "($status)"
 }
 
 Write-Step "Vote API on $api"
@@ -53,12 +54,15 @@ Test-Check 'GET /api/vote/{itemId}' {
 }
 
 Test-Check 'CORS preflight allows the site' {
+  # A real browser preflight: it carries Access-Control-Request-Method, so the
+  # Functions host answers it from the platform CORS setting, not our code.
   $res = Invoke-WebRequest "$api/api/vote" -Method Options -SkipHttpErrorCheck -Headers @{
-    Origin                          = $origin
-    'Access-Control-Request-Method' = 'POST'
+    Origin                           = $origin
+    'Access-Control-Request-Method'  = 'POST'
+    'Access-Control-Request-Headers' = 'content-type'
   }
   $allowed = "$($res.Headers['Access-Control-Allow-Origin'])"
-  if ($allowed -ne $origin) { throw "Access-Control-Allow-Origin is '$allowed'" }
+  if ($allowed -ne $origin) { throw "Access-Control-Allow-Origin is '$allowed'. Check platform CORS (re-run step 2)." }
 }
 
 Test-Check 'CORS refuses another origin' {

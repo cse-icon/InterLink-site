@@ -48,6 +48,18 @@ az functionapp config appsettings set -g $ResourceGroup -n $FunctionApp -o none 
 Remove-Variable connection
 Write-Ok "AZURE_STORAGE_CONNECTION_STRING set, ALLOWED_ORIGINS=https://$SiteDomain"
 
+Write-Step 'Platform CORS'
+# The Functions host answers CORS preflights itself, before the function code
+# runs, and without this setting it answers them with no CORS headers, so
+# browsers block every vote. It must list the same origins as ALLOWED_ORIGINS.
+$platformOrigins = @(az functionapp cors show -g $ResourceGroup -n $FunctionApp --query 'allowedOrigins' -o tsv)
+if ($platformOrigins -contains "https://$SiteDomain") {
+  Write-Ok "already allows https://$SiteDomain"
+} else {
+  az functionapp cors add -g $ResourceGroup -n $FunctionApp --allowed-origins "https://$SiteDomain" -o none
+  Write-Ok "allows https://$SiteDomain"
+}
+
 Write-Step "Deploy app registration '$DeployAppName' (shared, existing)"
 $appId = Get-DeployAppId
 $spId = az ad sp list --filter "appId eq '$appId'" --query '[0].id' -o tsv
