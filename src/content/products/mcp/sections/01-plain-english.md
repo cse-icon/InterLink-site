@@ -1,20 +1,19 @@
 ---
 title: Ask in Plain English
 description: >-
-  Model Context Protocol servers that let AI assistants query your process
-  historian directly — no SQL, no schema to learn, no export step.
+  Model Context Protocol servers that let an AI assistant query your historian
+  or SCADA system directly. You ask the question, and the server finds the tags
+  and reads the data.
 icon: sparkles
 features:
-  - title: Works With the Assistants You Use
-    description: Claude Desktop, claude.ai, Cursor, ChatGPT custom connectors, Codex CLI — any MCP client.
-  - title: Speaks Process Data
-    description: Tags, asset models, alarms, batches, and quality codes — not a generic SQL gateway.
-  - title: No Data Export
-    description: Questions are answered against the live historian. Nothing is copied to a third party.
+  - title: Works With Your Assistant
+    description: Claude Desktop, Claude Code, Cursor, VS Code and other MCP clients.
+  - title: Built for Process Data
+    description: Every tool works in tags, hierarchies, history and quality codes.
+  - title: No Export Step
+    description: The server reads the live system when you ask. It never syncs history to a cloud service.
   - title: Discovery Built In
-    description: Assistants find the right tags themselves, including whether a tag actually has data.
-  - title: Guided Workflows
-    description: Pre-built prompts for routine jobs like morning summaries and fault triage.
+    description: Search results show whether each tag holds data, so the assistant can pick the right one on its own.
   - title: Self-Documenting
-    description: The server explains its own capabilities, so assistants use it correctly without hand-holding.
+    description: The server tells the assistant what each tool does and where its limits are.
 ---
